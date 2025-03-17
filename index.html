@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Block Game</title>
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+
+            #blockgame {
+                width: 100vw;
+                height: 100vh;
+            }
+
+            #pause {
+                text-align: center;
+                position: absolute;
+                width: 100vw;
+                height: 100vh;
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="pause">
+            <h1>Click to unpause</h1>
+        </div>
+        <canvas id="blockgame"></canvas>
+        <script type="module">
+            import BlockGame from './src/BlockGame.js'
+
+            const pauseScreen = document.getElementById('pause')
+            const blockGame = new BlockGame({
+                canvas: document.getElementById('blockgame'),
+                username: "james",
+                onLock: () => {
+                    pauseScreen.style.display = 'none'
+                },
+                onUnlock: () => {
+                    pauseScreen.style.display = 'block'
+                },
+                onUpdatePlayers: (players) => {
+                },
+            })
+
+            pauseScreen.addEventListener('click', () => {
+                blockGame.lock()
+            })
+        </script>
+    </body>
+</html>
