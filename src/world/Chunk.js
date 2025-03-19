@@ -91,8 +91,9 @@ class Chunk {
                         block = 3
                     }
 
-                    this.setBlock(x, y, z, block)
+                    // this.setBlock(x, y, z, block)
                 }
+                this.setBlock(x, 1, z, 1)
             }
         }
     }

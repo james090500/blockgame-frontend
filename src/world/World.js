@@ -19,13 +19,18 @@ class World {
         // Noise
         this.worldNoise = new Noise(65536)
 
-        for (let x = -2; x < 2; x++) {
-            for (let y = -2; y < 2; y++) {
-                const chunk = new Chunk(x, y)
-                this.chunks.set(`${x},${y}`, chunk)
-                chunk.generateTerrain(this.worldNoise)
-            }
-        }
+        // for (let x = -2; x < 2; x++) {
+        //     for (let y = -2; y < 2; y++) {
+        //         const chunk = new Chunk(x, y)
+        //         this.chunks.set(`${x},${y}`, chunk)
+        //         chunk.generateTerrain(this.worldNoise)
+        //     }
+        // }
+        let x = 0
+        let y = 0
+        const chunk = new Chunk(x, y)
+        this.chunks.set(`${x},${y}`, chunk)
+        chunk.generateTerrain(this.worldNoise)
 
         const chunkRenderer = new ChunkRenderer()
 

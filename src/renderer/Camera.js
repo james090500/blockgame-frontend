@@ -10,7 +10,7 @@ class Camera {
             520
         )
 
-        this.camera.position.y = 85
+        this.camera.position.y = 5
         // this.camera.rotation.x = Math.PI
 
         return this.camera
