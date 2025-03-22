@@ -1,10 +1,9 @@
-import TextureManager from '../utils/TextureManager.js'
 import Block from './Block.js'
 
 class StoneBlock extends Block {
     constructor() {
         super()
-        this.setTexture(TextureManager.stone_block)
+        this.setTexture(1)
     }
 }
 

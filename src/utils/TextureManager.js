@@ -4,6 +4,13 @@ class TextureManager {
     static {
         // Ground
         let loader = new TextureLoader()
+        TextureManager.terrain = loader.load(
+            'public/terrain.png',
+            (texture) => {
+                texture.minFilter = texture.magFilter = NearestFilter
+            }
+        )
+
         TextureManager.grass_block_top = loader.load(
             'public/blocks/grass_block_top.png',
             (texture) => {
