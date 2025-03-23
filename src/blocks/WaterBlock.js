@@ -3,7 +3,9 @@ import Block from './Block.js'
 class WaterBlock extends Block {
     constructor() {
         super()
-        this.setTexture(205) //205
+        this.id = 5
+        this.texture = 205
+        this.transparent = true
     }
 }
 

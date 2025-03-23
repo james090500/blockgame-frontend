@@ -1,9 +1,7 @@
 class Block {
-    texture
-
-    setTexture(texture) {
-        this.texture = texture
-    }
+    id = 0
+    texture = 0
+    transparent = false
 
     uv() {
         const tileScale = 16 / 256

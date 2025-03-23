@@ -3,7 +3,8 @@ import Block from './Block.js'
 class GrassBlock extends Block {
     constructor() {
         super()
-        this.setTexture(2)
+        this.id = 2
+        this.texture = 2
     }
 }
 

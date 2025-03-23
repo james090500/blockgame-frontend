@@ -6,13 +6,19 @@ import WaterBlock from './WaterBlock.js'
 
 class Blocks {
     static {
+        this.grassBlock = new GrassBlock()
+        this.dirtBlock = new DirtBlock()
+        this.stoneBlock = new StoneBlock()
+        this.sandBlock = new SandBlock()
+        this.waterBlock = new WaterBlock()
+
         this.ids = [
             null,
-            new GrassBlock(),
-            new DirtBlock(),
-            new StoneBlock(),
-            new SandBlock(),
-            new WaterBlock(),
+            this.grassBlock,
+            this.dirtBlock,
+            this.stoneBlock,
+            this.sandBlock,
+            this.waterBlock,
         ]
     }
 }

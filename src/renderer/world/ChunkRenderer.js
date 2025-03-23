@@ -14,8 +14,8 @@ class ChunkRenderer {
             [0, 0, 0],
             [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
             function (x, y, z) {
-                const index = chunk.getBlock(x, y, z)
-                return index != 5 ? index : 0
+                const block = chunk.getBlock(x, y, z)
+                return block != null && !block.transparent ? block.id : null
             }
         )
 
@@ -27,8 +27,8 @@ class ChunkRenderer {
             [0, 0, 0],
             [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
             function (x, y, z) {
-                const index = chunk.getBlock(x, y, z)
-                return index == 5 ? 5 : 0
+                const block = chunk.getBlock(x, y, z)
+                return block != null && block.transparent ? block.id : null
             }
         )
 
@@ -190,27 +190,38 @@ class ChunkRenderer {
                             mask[n] = 0
                         } else {
                             if (!!a) {
-                                const block = world.getChunkBlock(
+                                const currentBlock = Blocks.ids[a]
+                                const nextBlock = world.getChunkBlock(
                                     chunk.chunkX,
                                     chunk.chunkY,
                                     x[0] + q[0],
                                     x[1] + q[1],
                                     x[2] + q[2]
                                 )
-                                if (block != 0 && (a == 5 || block != 5)) {
+                                if (
+                                    nextBlock != null &&
+                                    (!nextBlock.transparent ||
+                                        currentBlock.transparent)
+                                ) {
                                     mask[n] = 0
                                 } else {
                                     mask[n] = a
                                 }
                             } else {
-                                const block = world.getChunkBlock(
+                                const currentBlock = Blocks.ids[b]
+                                const nextBlock = world.getChunkBlock(
                                     chunk.chunkX,
                                     chunk.chunkY,
                                     x[0],
                                     x[1],
                                     x[2]
                                 )
-                                if (block != 0 && (b == 5 || block != 5)) {
+
+                                if (
+                                    nextBlock != null &&
+                                    (!nextBlock.transparent ||
+                                        currentBlock.transparent)
+                                ) {
                                     mask[n] = 0
                                 } else {
                                     mask[n] = -b

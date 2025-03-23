@@ -7,7 +7,7 @@ class Camera {
             BlockGame.instance.config.CANVAS.clientWidth /
                 BlockGame.instance.config.CANVAS.clientHeight,
             0.1,
-            520
+            512
         )
 
         this.camera.position.y = 80

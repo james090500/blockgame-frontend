@@ -3,7 +3,8 @@ import Block from './Block.js'
 class SandBlock extends Block {
     constructor() {
         super()
-        this.setTexture(18)
+        this.id = 4
+        this.texture = 18
     }
 }
 

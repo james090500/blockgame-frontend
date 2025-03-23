@@ -3,7 +3,8 @@ import Block from './Block.js'
 class GrassBlock extends Block {
     constructor() {
         super()
-        this.setTexture(0)
+        this.id = 1
+        this.texture = 0
     }
 
     textureOffset(face) {

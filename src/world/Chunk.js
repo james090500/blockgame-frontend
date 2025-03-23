@@ -1,4 +1,5 @@
 import { ImprovedNoise } from 'three/examples/jsm/Addons.js'
+import Blocks from '../blocks/Blocks.js'
 
 class Chunk {
     chunkX = 0
@@ -44,9 +45,10 @@ class Chunk {
     getBlock(x, y, z) {
         const index = this.getIndex(x, y, z)
         if (index == null) {
-            return 0
+            return null
         } else {
-            return this.chunkData[index]
+            const blockIndex = this.chunkData[index]
+            return Blocks.ids[blockIndex]
         }
     }
 
@@ -59,7 +61,7 @@ class Chunk {
         }
     }
 
-    generateTerrain(noise) {
+    generateTerrain() {
         const perlin = new ImprovedNoise()
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
@@ -86,16 +88,16 @@ class Chunk {
 
                     if (y + 1 == height) {
                         if (height <= waterHeight) {
-                            block = 4
+                            block = Blocks.sandBlock.id
                         } else {
-                            block = 1
+                            block = Blocks.grassBlock.id
                         }
                     } else if (y <= waterHeight && y >= height) {
-                        block = 5
+                        block = Blocks.waterBlock.id
                     } else if (y > height - 5) {
-                        block = 2
+                        block = Blocks.dirtBlock.id
                     } else {
-                        block = 3
+                        block = Blocks.stoneBlock.id
                     }
 
                     this.setBlock(x, y, z, block)

@@ -2,6 +2,7 @@ import { HemisphereLight, Color } from 'three'
 import noisePkg from 'noisejs'
 import Chunk from './Chunk.js'
 import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
+import Blocks from '../blocks/Blocks.js'
 const { Noise } = noisePkg
 
 class World {
@@ -76,7 +77,7 @@ class World {
             const chunkBlockZ = z
             return chunk.getBlock(chunkBlockX, y, chunkBlockZ)
         } else {
-            return 0
+            return null
         }
     }
 
