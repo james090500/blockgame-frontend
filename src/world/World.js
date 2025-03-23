@@ -33,6 +33,10 @@ class World {
         for (const chunk of this.chunks.values()) {
             chunkRenderer.render(chunk)
         }
+
+        for (const chunk of this.chunks.values()) {
+            chunkRenderer.renderTransparent(chunk)
+        }
     }
 
     getBlock(x, y, z) {

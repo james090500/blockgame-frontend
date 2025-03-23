@@ -90,7 +90,7 @@ class Chunk {
                         } else {
                             block = 1
                         }
-                    } else if (y <= waterHeight) {
+                    } else if (y <= waterHeight && y >= height) {
                         block = 5
                     } else if (y > height - 5) {
                         block = 2

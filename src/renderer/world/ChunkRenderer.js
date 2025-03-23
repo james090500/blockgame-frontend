@@ -10,6 +10,32 @@ import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
     render(chunk) {
+        const data = this.makeVoxels(
+            [0, 0, 0],
+            [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
+            function (x, y, z) {
+                const index = chunk.getBlock(x, y, z)
+                return index != 5 ? index : 0
+            }
+        )
+
+        this.generateMesh(chunk, data)
+    }
+
+    renderTransparent(chunk) {
+        const data = this.makeVoxels(
+            [0, 0, 0],
+            [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
+            function (x, y, z) {
+                const index = chunk.getBlock(x, y, z)
+                return index == 5 ? 5 : 0
+            }
+        )
+
+        this.generateMesh(chunk, data, true)
+    }
+
+    generateMesh(chunk, data, transparent = false) {
         var geometry = new BufferGeometry()
         var material = new ShaderMaterial({
             vertexShader: `
@@ -60,6 +86,7 @@ class ChunkRenderer {
             uniforms: {
                 baseTexture: { type: 't', value: TextureManager.terrain },
             },
+            transparent,
         })
 
         const surfacemesh = new Mesh(geometry, material)
@@ -70,14 +97,6 @@ class ChunkRenderer {
         )
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
 
-        const data = this.makeVoxels(
-            [0, 0, 0],
-            [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
-            function (x, y, z) {
-                const index = chunk.getBlock(x, y, z)
-                return index
-            }
-        )
         const result = this.GreedyMesh(data.voxels, data.dims)
 
         const vertices = []
@@ -93,7 +112,6 @@ class ChunkRenderer {
             const q = result.faces[i]
 
             if (q.length === 5) {
-                const uv = q[4] // Now using UVs instead of colors
                 indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                 for (let j = 0; j < 4; j++) {
@@ -134,6 +152,7 @@ class ChunkRenderer {
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
     GreedyMesh(volume, dims) {
         var mask = new Int32Array(4096)
+        let tmp = 0
 
         function f(i, j, k) {
             return volume[i + dims[0] * (j + dims[1] * k)]
@@ -166,6 +185,11 @@ class ChunkRenderer {
                                 x[d] < dims[d] - 1
                                     ? f(x[0] + q[0], x[1] + q[1], x[2] + q[2])
                                     : 0
+
+                        // todo, calculate if block next to mask is solid
+                        // if (x[0] == -1) {
+                        //     mask[n] == 0
+                        // }
                         if (!!a === !!b) {
                             mask[n] = 0
                         } else if (!!a) {
