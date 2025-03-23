@@ -65,22 +65,30 @@ class ChunkRenderer {
                 varying vec2 vTexOffset;
 
                 void main() {
+                    vec4 blockLighting;
+                    float faceLight = 1.0;
                     vec2 tileSize = vec2(0.0625, 0.0625);
                     vec2 tileUV;
 
                     // Determine correct UV projection based on face normal
                     if (abs(vNormal.x) > 0.5) {  // Left/Right faces
+                        faceLight = 0.8;
                         tileUV = vec2(vPosition.z, vPosition.y);
-                    } else if (abs(vNormal.y) > 0.5) {  // Top/Bottom faces
+                    } else if (vNormal.y > 0.5) {  // Top Face
                         tileUV = vec2(vPosition.x, vPosition.z);
+                    } else if (vNormal.y < -0.5) {  // Bottom Face
+                        tileUV = vec2(vPosition.x, vPosition.z);
+                        faceLight = 0.5;
                     } else {  // Front/Back faces
+                        faceLight = 0.8;
                         tileUV = vec2(vPosition.x, vPosition.y);
                     }
 
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
 
-                    gl_FragColor = texture2D(baseTexture, texCoord);
+                    blockLighting = vec4(faceLight * vec3(1.0, 1.0, 1.0), 1.0);
+                    gl_FragColor = texture2D(baseTexture, texCoord) * blockLighting;
                 }
             `,
             uniforms: {

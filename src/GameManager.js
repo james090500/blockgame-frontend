@@ -1,11 +1,11 @@
-import DebugGui from './gui/DebugGui.js'
+import PlayerGui from './gui/PlayerGui.js'
 import BlockGame from './BlockGame.js'
 import World from './world/World.js'
 
 class GameManager {
     constructor() {
         // Gui
-        this.debug = new DebugGui()
+        this.playerGui = new PlayerGui()
 
         // Terrain
         this.world = new World()
@@ -28,7 +28,7 @@ class GameManager {
         BlockGame.instance.renderer.sceneManager.updateMovement(delta)
 
         this.world.render(delta)
-        this.debug.render()
+        this.playerGui.render()
     }
 }
 

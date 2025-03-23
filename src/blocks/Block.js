@@ -1,6 +1,6 @@
 class Block {
-    id = 0
-    texture = 0
+    id = 999
+    texture = 14
     transparent = false
 
     uv() {

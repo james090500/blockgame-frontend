@@ -18,7 +18,9 @@ class DebugGui {
             })
         )
 
-        this.mesh.renderOrder = 1000
+        this.mesh.renderOrder = 999
+        this.mesh.material.depthTest = false
+        this.mesh.material.transparent = true
 
         this.mesh.position.set(0.5, 0.75, -1)
 
