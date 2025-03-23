@@ -19,8 +19,9 @@ class World {
         // Noise
         this.worldNoise = new Noise(65536)
 
-        for (let x = -2; x < 2; x++) {
-            for (let y = -2; y < 2; y++) {
+        const worldSize = 8
+        for (let x = -worldSize; x < worldSize; x++) {
+            for (let y = -worldSize; y < worldSize; y++) {
                 const chunk = new Chunk(x, y)
                 this.chunks.set(`${x},${y}`, chunk)
                 chunk.generateTerrain(this.worldNoise)
@@ -30,7 +31,7 @@ class World {
         const chunkRenderer = new ChunkRenderer()
 
         for (const chunk of this.chunks.values()) {
-            chunkRenderer.render(this, chunk)
+            chunkRenderer.render(chunk)
         }
     }
 

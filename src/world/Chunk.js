@@ -63,28 +63,35 @@ class Chunk {
         const perlin = new ImprovedNoise()
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
-                const spikes = 20
-                const mountains = 25
+                const smoothness = 30
+                const mountains = 30
 
                 const nx = x + this.chunkX * this.chunkSize
                 const ny = z + this.chunkY * this.chunkSize
 
                 // Get Perlin noise value
                 const noiseResult = perlin.noise(
-                    (nx - 0.5) / spikes,
+                    (nx - 0.5) / smoothness,
                     1,
-                    (ny - 0.5) / spikes
+                    (ny - 0.5) / smoothness
                 )
 
                 let height = (noiseResult + 1) / 2
                 height *= mountains
-                height = 64 + Math.round(height)
+                height = 50 + Math.round(height)
 
-                for (let y = 0; y < height; y++) {
+                const waterHeight = 64
+                for (let y = 0; y < Math.max(height, waterHeight); y++) {
                     let block = 0
 
                     if (y + 1 == height) {
-                        block = 1
+                        if (height <= waterHeight) {
+                            block = 4
+                        } else {
+                            block = 1
+                        }
+                    } else if (y <= waterHeight) {
+                        block = 5
                     } else if (y > height - 5) {
                         block = 2
                     } else {

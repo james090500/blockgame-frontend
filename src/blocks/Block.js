@@ -17,7 +17,7 @@ class Block {
         return [u, v, tileScale, tileScale]
     }
 
-    textureOffset() {
+    textureOffset(face = null) {
         const tileScale = 16 / 256
 
         const x = this.texture % 16

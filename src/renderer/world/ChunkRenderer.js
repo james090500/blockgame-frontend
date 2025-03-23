@@ -3,14 +3,13 @@ import {
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
-    Vector2,
 } from 'three'
 import TextureManager from '../../utils/TextureManager.js'
 import Blocks from '../../blocks/Blocks.js'
 import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
-    render(world, chunk) {
+    render(chunk) {
         var geometry = new BufferGeometry()
         var material = new ShaderMaterial({
             vertexShader: `
@@ -41,9 +40,20 @@ class ChunkRenderer {
 
                 void main() {
                     vec2 tileSize = vec2(0.0625, 0.0625);
+                    vec2 tileUV;
 
-                    vec2 tileUV = vec2(dot(vNormal.zxy, vPosition), dot(vNormal.yzx, vPosition));
+                    // Determine correct UV projection based on face normal
+                    if (abs(vNormal.x) > 0.5) {  // Left/Right faces
+                        tileUV = vec2(vPosition.z, vPosition.y);
+                    } else if (abs(vNormal.y) > 0.5) {  // Top/Bottom faces
+                        tileUV = vec2(vPosition.x, vPosition.z);
+                    } else {  // Front/Back faces
+                        tileUV = vec2(vPosition.x, vPosition.y);
+                    }
+
+                    // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
+
                     gl_FragColor = texture2D(baseTexture, texCoord);
                 }
             `,
@@ -72,7 +82,6 @@ class ChunkRenderer {
 
         const vertices = []
         const indices = []
-        const uvs = []
         const textureOffset = []
 
         for (let i = 0; i < result.vertices.length; ++i) {
@@ -83,13 +92,12 @@ class ChunkRenderer {
         for (let i = 0; i < result.faces.length; ++i) {
             const q = result.faces[i]
 
-            if (q.length === 6) {
+            if (q.length === 5) {
                 const uv = q[4] // Now using UVs instead of colors
                 indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                 for (let j = 0; j < 4; j++) {
-                    uvs.push(uv[j][0], uv[j][1])
-                    textureOffset.push(q[5][0], q[5][1])
+                    textureOffset.push(q[4][0], q[4][1])
                 }
             }
         }
@@ -101,7 +109,6 @@ class ChunkRenderer {
         )
 
         geometry.setIndex(indices)
-        geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
         geometry.setAttribute(
             'textureOffset',
             new Float32BufferAttribute(textureOffset, 2)
@@ -226,22 +233,18 @@ class ChunkRenderer {
                             ])
 
                             const block = Blocks.ids[c]
-                            const uvBase = block.uv()
-                            console.log(uvBase)
-                            const uvs = [
-                                [uvBase[0], uvBase[1]], // Bottom-left
-                                [uvBase[0] + uvBase[2], uvBase[1]], // Bottom-right
-                                [uvBase[0] + uvBase[2], uvBase[1] + uvBase[3]], // Top-right
-                                [uvBase[0], uvBase[1] + uvBase[3]], // Top-left
-                            ]
+                            let textureOffset = block.textureOffset()
+                            //TOP
+                            if (du[1] == 0 && dv[1] == 0) {
+                                textureOffset = block.textureOffset('top')
+                            }
 
                             faces.push([
                                 vertex_count,
                                 vertex_count + 1,
                                 vertex_count + 2,
                                 vertex_count + 3,
-                                uvs,
-                                block.textureOffset(),
+                                textureOffset,
                             ])
 
                             //Zero-out mask
