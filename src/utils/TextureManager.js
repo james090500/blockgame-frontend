@@ -4,12 +4,9 @@ class TextureManager {
     static {
         // Ground
         let loader = new TextureLoader()
-        TextureManager.terrain = loader.load(
-            'public/terrain.png',
-            (texture) => {
-                texture.minFilter = texture.magFilter = NearestFilter
-            }
-        )
+        TextureManager.terrain = loader.load('terrain.png', (texture) => {
+            texture.minFilter = texture.magFilter = NearestFilter
+        })
     }
 }
 
