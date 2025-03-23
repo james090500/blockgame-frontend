@@ -31,11 +31,11 @@ class World {
         const chunkRenderer = new ChunkRenderer()
 
         for (const chunk of this.chunks.values()) {
-            chunkRenderer.render(chunk)
+            chunkRenderer.render(this, chunk)
         }
 
         for (const chunk of this.chunks.values()) {
-            chunkRenderer.renderTransparent(chunk)
+            chunkRenderer.renderTransparent(this, chunk)
         }
     }
 
@@ -43,10 +43,37 @@ class World {
         const chunkX = Math.floor(x / 16)
         const chunkY = Math.floor(z / 16)
 
+        x = x & 15
+        z = z & 15
+
+        return this.getChunkBlock(chunkX, chunkY, x, y, z)
+    }
+
+    getChunkBlock(chunkX, chunkY, x, y, z) {
+        // Adjust X coordinate and chunk
+        while (x < 0) {
+            chunkX--
+            x += 16
+        }
+        while (x >= 16) {
+            chunkX++
+            x -= 16
+        }
+
+        // Adjust Z coordinate and chunk
+        while (z < 0) {
+            chunkY--
+            z += 16
+        }
+        while (z >= 16) {
+            chunkY++
+            z -= 16
+        }
+
         const chunk = this.chunks.get(`${chunkX},${chunkY}`)
         if (chunk != null) {
-            const chunkBlockX = x & 15
-            const chunkBlockZ = z & 15
+            const chunkBlockX = x
+            const chunkBlockZ = z
             return chunk.getBlock(chunkBlockX, y, chunkBlockZ)
         } else {
             return 0

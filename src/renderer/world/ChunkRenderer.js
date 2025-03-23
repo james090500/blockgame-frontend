@@ -9,7 +9,7 @@ import Blocks from '../../blocks/Blocks.js'
 import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
-    render(chunk) {
+    render(world, chunk) {
         const data = this.makeVoxels(
             [0, 0, 0],
             [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
@@ -19,10 +19,10 @@ class ChunkRenderer {
             }
         )
 
-        this.generateMesh(chunk, data)
+        this.generateMesh(world, chunk, data)
     }
 
-    renderTransparent(chunk) {
+    renderTransparent(world, chunk) {
         const data = this.makeVoxels(
             [0, 0, 0],
             [chunk.chunkSize, chunk.chunkHeight, chunk.chunkSize],
@@ -32,10 +32,10 @@ class ChunkRenderer {
             }
         )
 
-        this.generateMesh(chunk, data, true)
+        this.generateMesh(world, chunk, data, true)
     }
 
-    generateMesh(chunk, data, transparent = false) {
+    generateMesh(world, chunk, data, transparent = false) {
         var geometry = new BufferGeometry()
         var material = new ShaderMaterial({
             vertexShader: `
@@ -97,7 +97,7 @@ class ChunkRenderer {
         )
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
 
-        const result = this.GreedyMesh(data.voxels, data.dims)
+        const result = this.GreedyMesh(world, chunk, data.voxels, data.dims)
 
         const vertices = []
         const indices = []
@@ -150,9 +150,8 @@ class ChunkRenderer {
     }
 
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
-    GreedyMesh(volume, dims) {
+    GreedyMesh(world, chunk, volume, dims) {
         var mask = new Int32Array(4096)
-        let tmp = 0
 
         function f(i, j, k) {
             return volume[i + dims[0] * (j + dims[1] * k)]
@@ -187,15 +186,36 @@ class ChunkRenderer {
                                     : 0
 
                         // todo, calculate if block next to mask is solid
-                        // if (x[0] == -1) {
-                        //     mask[n] == 0
-                        // }
                         if (!!a === !!b) {
                             mask[n] = 0
-                        } else if (!!a) {
-                            mask[n] = a
                         } else {
-                            mask[n] = -b
+                            if (!!a) {
+                                const block = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0] + q[0],
+                                    x[1] + q[1],
+                                    x[2] + q[2]
+                                )
+                                if (block != 0 && (a == 5 || block != 5)) {
+                                    mask[n] = 0
+                                } else {
+                                    mask[n] = a
+                                }
+                            } else {
+                                const block = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0],
+                                    x[1],
+                                    x[2]
+                                )
+                                if (block != 0 && (b == 5 || block != 5)) {
+                                    mask[n] = 0
+                                } else {
+                                    mask[n] = -b
+                                }
+                            }
                         }
                     }
                 //Increment x[d]
