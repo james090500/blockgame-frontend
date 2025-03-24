@@ -12,6 +12,7 @@ class Controls {
         KeyS: false,
         KeyA: false,
         KeyD: false,
+        KeyC: false,
         Space: false,
         ShiftLeft: false,
     } // Movement keys`

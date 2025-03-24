@@ -315,7 +315,10 @@ class ChunkRenderer {
                                     x[1],
                                     x[2]
                                 )
-                                if (currentBlock == null) {
+                                if (
+                                    currentBlock == null ||
+                                    currentBlock.transparent
+                                ) {
                                     textureOffset = block.textureOffset('top')
                                 } else {
                                     textureOffset =

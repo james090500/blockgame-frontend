@@ -4,6 +4,8 @@ import WaterBlock from '../blocks/WaterBlock'
 import Blocks from '../blocks/Blocks'
 
 class LocalPlayer {
+    currentBlock = 1
+
     updateInteraction(delta) {
         const mouse = BlockGame.instance.input.mouse
         if (mouse.LeftClick) {
@@ -39,12 +41,21 @@ class LocalPlayer {
                         prevLocation[0],
                         prevLocation[1],
                         prevLocation[2],
-                        Blocks.stoneBlock.id
+                        this.currentBlock
                     )
                     return true
                 }
                 prevLocation = [x, y, z]
             })
+        }
+
+        const keys = BlockGame.instance.input.keys
+        if (keys.KeyC) {
+            keys.KeyC = false
+            this.currentBlock++
+            if (this.currentBlock > Blocks.ids.length - 1) {
+                this.currentBlock = 1
+            }
         }
     }
 
