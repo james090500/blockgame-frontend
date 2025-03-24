@@ -18,7 +18,7 @@ class World {
         // Noise
         this.worldNoise = new Noise(65536)
 
-        const worldSize = 1
+        const worldSize = 8
         for (let x = -worldSize; x < worldSize; x++) {
             for (let y = -worldSize; y < worldSize; y++) {
                 const chunk = new Chunk(x, y)
