@@ -1,8 +1,6 @@
 import { HemisphereLight, Color } from 'three'
 import noisePkg from 'noisejs'
 import Chunk from './Chunk.js'
-import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
-import Blocks from '../blocks/Blocks.js'
 const { Noise } = noisePkg
 
 class World {
@@ -29,14 +27,8 @@ class World {
             }
         }
 
-        const chunkRenderer = new ChunkRenderer()
-
         for (const chunk of this.chunks.values()) {
-            chunkRenderer.render(this, chunk)
-        }
-
-        for (const chunk of this.chunks.values()) {
-            chunkRenderer.renderTransparent(this, chunk)
+            chunk.render(this)
         }
     }
 
@@ -48,6 +40,32 @@ class World {
         z = z & 15
 
         return this.getChunkBlock(chunkX, chunkY, x, y, z)
+    }
+
+    setBlock(x, y, z, value) {
+        const chunkX = Math.floor(x / 16)
+        const chunkY = Math.floor(z / 16)
+
+        const localX = x & 15
+        const localZ = z & 15
+
+        const chunk = this.chunks.get(`${chunkX},${chunkY}`)
+        if (!chunk) return
+
+        chunk.setBlock(localX, y, localZ, value)
+        chunk.render(this)
+
+        // Helper function to render adjacent chunks if necessary
+        const renderAdjacentChunk = (adjX, adjY) => {
+            const adjacentChunk = this.chunks.get(`${adjX},${adjY}`)
+            if (adjacentChunk) adjacentChunk.render(this)
+        }
+
+        // Check and render adjacent chunks if necessary
+        if (localX === 0) renderAdjacentChunk(chunkX - 1, chunkY)
+        if (localX === 15) renderAdjacentChunk(chunkX + 1, chunkY)
+        if (localZ === 0) renderAdjacentChunk(chunkX, chunkY - 1)
+        if (localZ === 15) renderAdjacentChunk(chunkX, chunkY + 1)
     }
 
     getChunkBlock(chunkX, chunkY, x, y, z) {

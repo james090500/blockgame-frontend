@@ -1,7 +1,9 @@
 import { ImprovedNoise } from 'three/examples/jsm/Addons.js'
 import Blocks from '../blocks/Blocks.js'
+import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
 
 class Chunk {
+    chunkRenderer = new ChunkRenderer()
     chunkX = 0
     chunkY = 0
     chunkSize = 16
@@ -15,6 +17,12 @@ class Chunk {
         this.chunkData = new Uint32Array(
             this.chunkSize * this.chunkSize * this.chunkHeight
         )
+    }
+
+    render(world) {
+        this.chunkRenderer.dispose()
+        this.chunkRenderer.render(world, this)
+        this.chunkRenderer.renderTransparent(world, this)
     }
 
     getIndex(x, y, z) {

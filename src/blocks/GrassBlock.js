@@ -18,6 +18,8 @@ class GrassBlock extends Block {
 
         if (face == 'top') {
             return [u, v]
+        } else if (face == 'bottom') {
+            return [u + tileScale * 2, v]
         } else {
             return [u + tileScale * 3, v]
         }

@@ -1,6 +1,7 @@
 import PlayerGui from './gui/PlayerGui.js'
 import BlockGame from './BlockGame.js'
 import World from './world/World.js'
+import LocalPlayer from './core/LocalPlayer.js'
 
 class GameManager {
     constructor() {
@@ -9,6 +10,9 @@ class GameManager {
 
         // Terrain
         this.world = new World()
+
+        // Local Player
+        this.thePlayer = new LocalPlayer()
 
         // Start Game Loop
         this.gameTick = this.gameTick.bind(this)
@@ -29,6 +33,8 @@ class GameManager {
 
         this.world.render(delta)
         this.playerGui.render()
+
+        this.thePlayer.render(delta)
     }
 }
 

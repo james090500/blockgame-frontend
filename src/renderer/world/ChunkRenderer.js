@@ -9,6 +9,8 @@ import Blocks from '../../blocks/Blocks.js'
 import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
+    chunkMeshes = []
+
     render(world, chunk) {
         const data = this.makeVoxels(
             [0, 0, 0],
@@ -20,6 +22,12 @@ class ChunkRenderer {
         )
 
         this.generateMesh(world, chunk, data)
+    }
+
+    dispose() {
+        this.chunkMeshes.forEach((mesh) => {
+            BlockGame.instance.renderer.sceneManager.remove(mesh)
+        })
     }
 
     renderTransparent(world, chunk) {
@@ -104,6 +112,7 @@ class ChunkRenderer {
             chunk.chunkY * chunk.chunkSize
         )
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
+        this.chunkMeshes.push(surfacemesh)
 
         const result = this.GreedyMesh(world, chunk, data.voxels, data.dims)
 
@@ -299,7 +308,19 @@ class ChunkRenderer {
                             let textureOffset = block.textureOffset()
                             //TOP
                             if (du[1] == 0 && dv[1] == 0) {
-                                textureOffset = block.textureOffset('top')
+                                const currentBlock = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0],
+                                    x[1],
+                                    x[2]
+                                )
+                                if (currentBlock == null) {
+                                    textureOffset = block.textureOffset('top')
+                                } else {
+                                    textureOffset =
+                                        block.textureOffset('bottom')
+                                }
                             }
 
                             faces.push([
