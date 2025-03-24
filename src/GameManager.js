@@ -29,8 +29,6 @@ class GameManager {
     gameLoop(delta, time) {
         BlockGame.instance.input.controls.update(delta)
 
-        BlockGame.instance.renderer.sceneManager.updateMovement(delta)
-
         this.world.render(delta)
         this.playerGui.render()
 

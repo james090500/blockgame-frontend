@@ -1,10 +1,115 @@
 import BlockGame from '../BlockGame'
-import { Vector3 } from 'three'
+import { Vector3, Clock, MathUtils } from 'three'
 import WaterBlock from '../blocks/WaterBlock'
 import Blocks from '../blocks/Blocks'
 
 class LocalPlayer {
     currentBlock = 1
+    jumping = false
+    falling = false
+
+    clock = new Clock()
+    jumpStartTime = 0
+
+    updateMovement(delta) {
+        let moveSpeed = 5
+        const camera = BlockGame.instance.renderer.sceneManager.camera
+        const keys = BlockGame.instance.input.keys
+        const world = BlockGame.instance.gameManager.world
+
+        const dir = new Vector3()
+        camera.getWorldDirection(dir)
+        dir.y = 0
+        dir.normalize()
+
+        let newPos = new Vector3(0, 0, 0)
+
+        if (keys.KeyW) {
+            newPos.add(dir.clone().multiplyScalar(moveSpeed * delta))
+        }
+        if (keys.KeyA) {
+            let sideDir = new Vector3().crossVectors(dir, new Vector3(0, -1, 0))
+            newPos.add(sideDir.multiplyScalar(moveSpeed * delta))
+        }
+        if (keys.KeyD) {
+            let sideDir = new Vector3().crossVectors(dir, new Vector3(0, 1, 0))
+            newPos.add(sideDir.multiplyScalar(moveSpeed * delta))
+        }
+        if (keys.KeyS) {
+            newPos.add(
+                dir
+                    .clone()
+                    .negate()
+                    .multiplyScalar(moveSpeed * delta)
+            )
+        }
+
+        if (keys.Space && !this.jumping && !this.falling) {
+            this.jumping = true
+            this.jumpStartTime = this.clock.getElapsedTime()
+        }
+
+        // Handle jumping
+        if (this.jumping) {
+            const elapsedTime = this.clock.getElapsedTime() - this.jumpStartTime
+            if (elapsedTime < 0.5) {
+                let jump = MathUtils.lerp(0, 7.25, elapsedTime / 0.5) * delta
+                camera.position.y += jump
+            } else {
+                this.jumping = false
+            }
+        }
+
+        // Check X collision separately
+        let block1 = world.getBlock(
+            Math.floor(
+                camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
+            ),
+            Math.floor(camera.position.y),
+            Math.floor(camera.position.z)
+        )
+        let block2 = world.getBlock(
+            Math.floor(
+                camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
+            ),
+            Math.floor(camera.position.y - 0.75),
+            Math.floor(camera.position.z)
+        )
+        if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
+            camera.position.x += newPos.x
+        }
+
+        // Check Z collision separately
+        block1 = world.getBlock(
+            Math.floor(camera.position.x),
+            Math.floor(camera.position.y),
+            Math.floor(
+                camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+            )
+        )
+        block2 = world.getBlock(
+            Math.floor(camera.position.x),
+            Math.floor(camera.position.y - 0.75),
+            Math.floor(
+                camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+            )
+        )
+        if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
+            camera.position.z += newPos.z
+        }
+
+        // Gravity
+        const belowBlock = world.getBlock(
+            Math.floor(camera.position.x),
+            Math.floor(camera.position.y - 0.75) - 1,
+            Math.floor(camera.position.z)
+        )
+        this.falling = false
+        if ((!belowBlock || belowBlock.id == 5) && !this.jumping) {
+            this.falling = true
+            camera.position.y -= 7.25 * delta
+        }
+    }
 
     updateInteraction(delta) {
         const mouse = BlockGame.instance.input.mouse
@@ -118,7 +223,7 @@ class LocalPlayer {
      * Update the controls
      */
     render(delta) {
-        // this.updateMovement(delta)
+        this.updateMovement(delta)
         this.updateInteraction(delta)
         // this.renderer.render(delta)
     }
