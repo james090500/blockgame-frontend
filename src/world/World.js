@@ -22,7 +22,6 @@ class World {
     }
 
     loadChunks() {
-        const newChunks = new Map()
         const playerPos =
             BlockGame.instance.renderer.sceneManager.camera.position
 
@@ -30,68 +29,66 @@ class World {
         const playerPosZ = Math.floor(playerPos.z / 16)
 
         const worldSize = 8
+        const worldSizeSq = worldSize * worldSize
 
-        let totalGenerationTime = 0
         this.clock.getDelta()
+
         for (let dx = -worldSize; dx <= worldSize; dx++) {
             for (let dy = -worldSize; dy <= worldSize; dy++) {
-                // Calculate the distance from the player
-                if (dx * dx + dy * dy <= worldSize * worldSize) {
-                    let chunkX = playerPosX + dx
-                    let chunkY = playerPosZ + dy
+                const distSq = dx * dx + dy * dy
+                if (distSq > worldSizeSq) continue
 
-                    if (this.chunks.has(`${chunkX},${chunkY}`)) continue
+                const chunkX = playerPosX + dx
+                const chunkY = playerPosZ + dy
+                const key = `${chunkX},${chunkY}`
 
-                    const chunk = new Chunk(chunkX, chunkY)
-                    newChunks.set(`${chunkX},${chunkY}`, chunk)
-                    chunk.generateTerrain(this.worldNoise)
+                if (this.chunks.has(key)) continue
 
-                    let temp = this.clock.getDelta()
-                    totalGenerationTime += temp
-                    // console.log(
-                    //     `Generating chunk at ${chunkX},${chunkY} took ${temp}s`
-                    // )
+                // Create and store new chunk
+                const chunk = new Chunk(chunkX, chunkY)
+                chunk.generateTerrain(this.worldNoise)
+                this.chunks.set(key, chunk)
+
+                // Mark adjacent chunks for re-rendering
+                for (let d = -1; d <= 1; d++) {
+                    for (let e = -1; e <= 1; e++) {
+                        if (d === 0 && e === 0) continue
+                        const neighborKey = `${chunkX + d},${chunkY + e}`
+                        if (this.chunks.has(neighborKey)) {
+                            this.chunks.get(neighborKey).rendered = false
+                        }
+                    }
                 }
             }
         }
-        if (totalGenerationTime > 0) {
-            // console.log(`Total Generation time ${totalGenerationTime}`)
-        }
 
         // Render new chunks
-        let totalRenderingTime = 0
-        this.clock.getDelta()
-        for (const chunk of newChunks.values()) {
-            this.clock.getDelta()
-            chunk.render(this)
-            let tmp = this.clock.getDelta()
-            totalRenderingTime += tmp
-            // console.log(
-            //     `Rendering chunk at ${chunk.chunkX},${chunk.chunkY} took ${tmp}s`
-            // )
+        let temp1 = 0
+        for (const chunk of this.chunks.values()) {
+            if (!chunk.rendered) {
+                temp1++
+                chunk.render(this)
+            }
         }
-        if (totalRenderingTime > 0) {
-            // console.log(`Total Rendering time ${totalRenderingTime}`)
-        }
+        console.log(temp1)
 
         // Remove old chunks
-        for (const key of this.chunks.keys()) {
-            const keyPos = key.split(',')
+        for (const [key, chunk] of this.chunks) {
+            const [keyX, keyY] = key.split(',').map(Number)
             if (
-                keyPos[0] > playerPosX + worldSize ||
-                keyPos[0] < playerPosX - worldSize ||
-                keyPos[1] > playerPosZ + worldSize ||
-                keyPos[1] < playerPosZ - worldSize
+                keyX > playerPosX + worldSize ||
+                keyX < playerPosX - worldSize ||
+                keyY > playerPosZ + worldSize ||
+                keyY < playerPosZ - worldSize
             ) {
-                this.chunks.get(key).chunkRenderer.dispose()
+                chunk.chunkRenderer.dispose()
                 this.chunks.delete(key)
-                // console.log(`Removing chunk at ${key}`)
             }
         }
 
-        // Add chunks to world
-        for (const chunk of newChunks.values()) {
-            this.chunks.set(`${chunk.chunkX},${chunk.chunkY}`, chunk)
+        const temp = this.clock.getDelta()
+        if (temp > 0.05) {
+            console.log(temp)
         }
     }
 

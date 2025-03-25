@@ -3,6 +3,7 @@ import {
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
+    Clock,
 } from 'three'
 import TextureManager from '../../utils/TextureManager.js'
 import Blocks from '../../blocks/Blocks.js'
@@ -10,6 +11,7 @@ import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
     chunkMeshes = []
+    clock = new Clock()
 
     render(world, chunk) {
         const data = this.makeVoxels(
@@ -114,6 +116,7 @@ class ChunkRenderer {
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
         this.chunkMeshes.push(surfacemesh)
 
+        this.clock.getDelta()
         const result = this.GreedyMesh(world, chunk, data.voxels, data.dims)
 
         const vertices = []
@@ -168,6 +171,7 @@ class ChunkRenderer {
 
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
     GreedyMesh(world, chunk, volume, dims) {
+        this.clock.getDelta()
         var mask = new Int32Array(4096)
 
         function f(i, j, k) {
@@ -349,6 +353,8 @@ class ChunkRenderer {
                     }
             }
         }
+        console.log(this.clock.getDelta())
+        //TODO THIS TAKES ALMOST 0.004 TO COMPLETE, WITH 49 (x2 for water) CALLS THAT IS 0.4s
         return { vertices: vertices, faces: faces }
     }
 }

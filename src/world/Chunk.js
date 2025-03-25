@@ -4,12 +4,14 @@ import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
 import { Clock } from 'three'
 
 class Chunk {
+    rendered = false
     chunkRenderer = new ChunkRenderer()
     chunkX = 0
     chunkY = 0
     chunkSize = 16
     chunkHeight = 300
     chunkData
+    chunkWorker
 
     constructor(chunkX, chunkY) {
         this.chunkX = chunkX
@@ -24,6 +26,7 @@ class Chunk {
         this.chunkRenderer.dispose()
         this.chunkRenderer.render(world, this)
         this.chunkRenderer.renderTransparent(world, this)
+        this.rendered = true
     }
 
     getIndex(x, y, z) {
@@ -72,43 +75,32 @@ class Chunk {
 
     generateTerrain() {
         const perlin = new ImprovedNoise()
-        const baseScale = 40
+        const smoothness = 25
         const waterLevel = 64
 
-        const clock = new Clock()
-        clock.getDelta()
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
-                for (let y = this.chunkHeight - 1; y >= 0; y--) {
+                    for (let y = this.chunkHeight - 1; y >= 0; y--) {
                     const nx = x + this.chunkX * this.chunkSize
                     const ny = y
                     const nz = z + this.chunkY * this.chunkSize
 
                     // Large-scale terrain shaping
-                    const largeNoise =
-                        (perlin.noise(
-                            nx / baseScale,
-                            ny / baseScale,
-                            nz / baseScale
-                        ) +
-                            1) /
-                        2
+                    let density = perlin.noise(
+                        nx / smoothness,
+                        ny / smoothness,
+                        nz / smoothness
+                    )
 
-                    // Blend large-scale and fine-detail noise
-                    // let noiseValue = largeNoise * 0.8 + detailNoise * 0.2
-                    let noiseValue = largeNoise
+                    // Adjust density based on Y value to make it higher at lower Y values
+                    const heightFactor = (waterLevel - y) / waterLevel
+                    density += heightFactor
 
-                    // Define the base terrain height using large noise
-                    let baseHeight = -64
+                    if (y < waterLevel) {
+                        density += y * 0.006
+                    }
 
-                    // Density calculation
-                    let density =
-                        noiseValue - (y - baseHeight) / this.chunkHeight
-
-                    // Sharper falloff above water level
-                    density -= (y - waterLevel) * 0.005
-
-                    if (density > 0) {
+                    if (density >= 0) {
                         if (y <= waterLevel + 1) {
                             this.setBlock(x, y, z, Blocks.sandBlock.id)
                         } else if (!this.getBlock(x, y + 1, z)) {
@@ -121,10 +113,9 @@ class Chunk {
                     } else if (y <= waterLevel) {
                         this.setBlock(x, y, z, Blocks.waterBlock.id)
                     }
-                }
+                // }
             }
         }
-        console.log(clock.getDelta())
     }
 }
 
