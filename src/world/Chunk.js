@@ -1,6 +1,7 @@
 import { ImprovedNoise } from 'three/examples/jsm/Addons.js'
 import Blocks from '../blocks/Blocks.js'
 import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
+import { Clock } from 'three'
 
 class Chunk {
     chunkRenderer = new ChunkRenderer()
@@ -74,6 +75,8 @@ class Chunk {
         const baseScale = 40
         const waterLevel = 64
 
+        const clock = new Clock()
+        clock.getDelta()
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
                 for (let y = this.chunkHeight - 1; y >= 0; y--) {
@@ -121,6 +124,7 @@ class Chunk {
                 }
             }
         }
+        console.log(clock.getDelta())
     }
 }
 

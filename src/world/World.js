@@ -1,4 +1,4 @@
-import { HemisphereLight, Color } from 'three'
+import { HemisphereLight, Color, Clock } from 'three'
 import noisePkg from 'noisejs'
 import Chunk from './Chunk.js'
 import BlockGame from '../BlockGame.js'
@@ -6,6 +6,7 @@ const { Noise } = noisePkg
 
 class World {
     chunks = new Map()
+    clock = new Clock()
 
     constructor() {
         // Ambient Light
@@ -30,6 +31,8 @@ class World {
 
         const worldSize = 8
 
+        let totalGenerationTime = 0
+        this.clock.getDelta()
         for (let dx = -worldSize; dx <= worldSize; dx++) {
             for (let dy = -worldSize; dy <= worldSize; dy++) {
                 // Calculate the distance from the player
@@ -39,18 +42,36 @@ class World {
 
                     if (this.chunks.has(`${chunkX},${chunkY}`)) continue
 
-                    console.log(`Generating chunk at ${chunkX},${chunkY}`)
-
                     const chunk = new Chunk(chunkX, chunkY)
                     newChunks.set(`${chunkX},${chunkY}`, chunk)
                     chunk.generateTerrain(this.worldNoise)
+
+                    let temp = this.clock.getDelta()
+                    totalGenerationTime += temp
+                    // console.log(
+                    //     `Generating chunk at ${chunkX},${chunkY} took ${temp}s`
+                    // )
                 }
             }
         }
+        if (totalGenerationTime > 0) {
+            // console.log(`Total Generation time ${totalGenerationTime}`)
+        }
 
         // Render new chunks
+        let totalRenderingTime = 0
+        this.clock.getDelta()
         for (const chunk of newChunks.values()) {
+            this.clock.getDelta()
             chunk.render(this)
+            let tmp = this.clock.getDelta()
+            totalRenderingTime += tmp
+            // console.log(
+            //     `Rendering chunk at ${chunk.chunkX},${chunk.chunkY} took ${tmp}s`
+            // )
+        }
+        if (totalRenderingTime > 0) {
+            // console.log(`Total Rendering time ${totalRenderingTime}`)
         }
 
         // Remove old chunks
@@ -64,7 +85,7 @@ class World {
             ) {
                 this.chunks.get(key).chunkRenderer.dispose()
                 this.chunks.delete(key)
-                console.log(`Removing chunk at ${key}`)
+                // console.log(`Removing chunk at ${key}`)
             }
         }
 
