@@ -1,6 +1,7 @@
 import { HemisphereLight, Color } from 'three'
 import noisePkg from 'noisejs'
 import Chunk from './Chunk.js'
+import BlockGame from '../BlockGame.js'
 const { Noise } = noisePkg
 
 class World {
@@ -17,18 +18,59 @@ class World {
 
         // Noise
         this.worldNoise = new Noise(65536)
+    }
+
+    loadChunks() {
+        const newChunks = new Map()
+        const playerPos =
+            BlockGame.instance.renderer.sceneManager.camera.position
+
+        const playerPosX = Math.floor(playerPos.x / 16)
+        const playerPosZ = Math.floor(playerPos.z / 16)
 
         const worldSize = 8
-        for (let x = -worldSize; x < worldSize; x++) {
-            for (let y = -worldSize; y < worldSize; y++) {
-                const chunk = new Chunk(x, y)
-                this.chunks.set(`${x},${y}`, chunk)
-                chunk.generateTerrain(this.worldNoise)
+
+        for (let dx = -worldSize; dx <= worldSize; dx++) {
+            for (let dy = -worldSize; dy <= worldSize; dy++) {
+                // Calculate the distance from the player
+                if (dx * dx + dy * dy <= worldSize * worldSize) {
+                    let chunkX = playerPosX + dx
+                    let chunkY = playerPosZ + dy
+
+                    if (this.chunks.has(`${chunkX},${chunkY}`)) continue
+
+                    console.log(`Generating chunk at ${chunkX},${chunkY}`)
+
+                    const chunk = new Chunk(chunkX, chunkY)
+                    newChunks.set(`${chunkX},${chunkY}`, chunk)
+                    chunk.generateTerrain(this.worldNoise)
+                }
             }
         }
 
-        for (const chunk of this.chunks.values()) {
+        // Render new chunks
+        for (const chunk of newChunks.values()) {
             chunk.render(this)
+        }
+
+        // Remove old chunks
+        for (const key of this.chunks.keys()) {
+            const keyPos = key.split(',')
+            if (
+                keyPos[0] > playerPosX + worldSize ||
+                keyPos[0] < playerPosX - worldSize ||
+                keyPos[1] > playerPosZ + worldSize ||
+                keyPos[1] < playerPosZ - worldSize
+            ) {
+                this.chunks.get(key).chunkRenderer.dispose()
+                this.chunks.delete(key)
+                console.log(`Removing chunk at ${key}`)
+            }
+        }
+
+        // Add chunks to world
+        for (const chunk of newChunks.values()) {
+            this.chunks.set(`${chunk.chunkX},${chunk.chunkY}`, chunk)
         }
     }
 
@@ -99,7 +141,9 @@ class World {
         }
     }
 
-    render(delta) {}
+    render(delta) {
+        this.loadChunks()
+    }
 }
 
 export default World

@@ -71,44 +71,53 @@ class Chunk {
 
     generateTerrain() {
         const perlin = new ImprovedNoise()
+        const baseScale = 40
+        const waterLevel = 64
+
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
-                const smoothness = 30
-                const mountains = 30
+                for (let y = this.chunkHeight - 1; y >= 0; y--) {
+                    const nx = x + this.chunkX * this.chunkSize
+                    const ny = y
+                    const nz = z + this.chunkY * this.chunkSize
 
-                const nx = x + this.chunkX * this.chunkSize
-                const ny = z + this.chunkY * this.chunkSize
+                    // Large-scale terrain shaping
+                    const largeNoise =
+                        (perlin.noise(
+                            nx / baseScale,
+                            ny / baseScale,
+                            nz / baseScale
+                        ) +
+                            1) /
+                        2
 
-                // Get Perlin noise value
-                const noiseResult = perlin.noise(
-                    (nx - 0.5) / smoothness,
-                    1,
-                    (ny - 0.5) / smoothness
-                )
+                    // Blend large-scale and fine-detail noise
+                    // let noiseValue = largeNoise * 0.8 + detailNoise * 0.2
+                    let noiseValue = largeNoise
 
-                let height = (noiseResult + 1) / 2
-                height *= mountains
-                height = 50 + Math.round(height)
+                    // Define the base terrain height using large noise
+                    let baseHeight = -64
 
-                const waterHeight = 64
-                for (let y = 0; y < Math.max(height, waterHeight); y++) {
-                    let block = 0
+                    // Density calculation
+                    let density =
+                        noiseValue - (y - baseHeight) / this.chunkHeight
 
-                    if (y + 1 == height) {
-                        if (height <= waterHeight) {
-                            block = Blocks.sandBlock.id
+                    // Sharper falloff above water level
+                    density -= (y - waterLevel) * 0.005
+
+                    if (density > 0) {
+                        if (y <= waterLevel + 1) {
+                            this.setBlock(x, y, z, Blocks.sandBlock.id)
+                        } else if (!this.getBlock(x, y + 1, z)) {
+                            this.setBlock(x, y, z, Blocks.grassBlock.id)
+                        } else if (!this.getBlock(x, y + 4, z)) {
+                            this.setBlock(x, y, z, Blocks.dirtBlock.id)
                         } else {
-                            block = Blocks.grassBlock.id
+                            this.setBlock(x, y, z, Blocks.stoneBlock.id)
                         }
-                    } else if (y <= waterHeight && y >= height) {
-                        block = Blocks.waterBlock.id
-                    } else if (y > height - 5) {
-                        block = Blocks.dirtBlock.id
-                    } else {
-                        block = Blocks.stoneBlock.id
+                    } else if (y <= waterLevel) {
+                        this.setBlock(x, y, z, Blocks.waterBlock.id)
                     }
-
-                    this.setBlock(x, y, z, block)
                 }
             }
         }
