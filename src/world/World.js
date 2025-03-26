@@ -1,11 +1,18 @@
-import { HemisphereLight, Color, Clock } from 'three'
-import noisePkg from 'noisejs'
+import workerpool from 'workerpool'
+import { HemisphereLight, Color } from 'three'
 import Chunk from './Chunk.js'
 import BlockGame from '../BlockGame.js'
-const { Noise } = noisePkg
+import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
 
 class World {
     chunks = new Map()
+    pool = workerpool.pool(ChunkTerrain, {
+        maxWorkers: 1,
+        workerOpts: {
+            type: import.meta.env.PROD ? undefined : 'module',
+        },
+    })
+    worldSeed = 0
 
     constructor() {
         // Ambient Light
@@ -15,9 +22,6 @@ class World {
         BlockGame.instance.renderer.sceneManager.scene.background = new Color(
             0x99ddff
         )
-
-        // Noise
-        this.worldNoise = new Noise(65536)
     }
 
     loadChunks() {
@@ -43,8 +47,32 @@ class World {
 
                 // Create and store new chunk
                 const chunk = new Chunk(chunkX, chunkY)
-                chunk.generateTerrain(this.worldNoise)
                 this.chunks.set(key, chunk)
+
+                const self = this
+                this.pool
+                    .exec('chunkTerrain', [
+                        {
+                            seed: this.worldSeed,
+                            x: chunkX,
+                            y: chunkY,
+                            size: chunk.chunkSize,
+                            height: chunk.chunkHeight,
+                        },
+                    ])
+                    .then((chunkData) => {
+                        chunk.chunkData = chunkData
+                    })
+                    .catch(function (err) {
+                        console.error(err)
+                    })
+                    .then(function () {
+                        // Render new chunks
+                        if (!chunk.rendered) {
+                            chunk.render(self)
+                        }
+                        pool.terminate() // terminate all workers when done
+                    })
 
                 // Mark adjacent chunks for re-rendering
                 for (let d = -1; d <= 1; d++) {
@@ -56,13 +84,6 @@ class World {
                         }
                     }
                 }
-            }
-        }
-
-        // Render new chunks
-        for (const chunk of this.chunks.values()) {
-            if (!chunk.rendered) {
-                chunk.render(this)
             }
         }
 
@@ -142,7 +163,8 @@ class World {
         if (chunk != null) {
             const chunkBlockX = x
             const chunkBlockZ = z
-            return chunk.getBlock(chunkBlockX, y, chunkBlockZ)
+            const block = chunk.getBlock(chunkBlockX, y, chunkBlockZ)
+            return block
         } else {
             return null
         }

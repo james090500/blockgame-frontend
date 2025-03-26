@@ -11,8 +11,8 @@
         "lint": "eslint src --fix"
     },
     "dependencies": {
-        "noisejs": "^2.1.0",
-        "three": "^0.174.0"
+        "three": "^0.174.0",
+        "workerpool": "^9.2.0"
     },
     "devDependencies": {
         "eslint-config-prettier": "^10.0.2",

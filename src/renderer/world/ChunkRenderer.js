@@ -12,10 +12,6 @@ import BlockGame from '../../BlockGame'
 class ChunkRenderer {
     chunkMeshes = []
     clock = new Clock()
-    worker = new Worker(
-        new URL('../../workers/greedyMeshWorker.js', import.meta.url),
-        { type: 'module' }
-    )
 
     render(world, chunk) {
         const data = this.makeVoxels(
@@ -27,7 +23,7 @@ class ChunkRenderer {
             }
         )
 
-        this.prepRender(world, chunk, data)
+        this.generateMesh(world, chunk, data)
     }
 
     renderTransparent(world, chunk) {
@@ -40,7 +36,7 @@ class ChunkRenderer {
             }
         )
 
-        this.prepRender(world, chunk, data, true)
+        this.generateMesh(world, chunk, data, true)
     }
 
     dispose() {
@@ -49,20 +45,7 @@ class ChunkRenderer {
         })
     }
 
-    prepRender(world, chunk, data, transparent = false) {
-        this.worker.postMessage({
-            volume: data.voxels,
-            dims: data.dims,
-            transparent,
-        })
-
-        this.worker.onmessage = (e) => {
-            const { vertices, faces, transparent } = e.data
-            this.handleMeshResult(chunk, vertices, faces, transparent)
-        }
-    }
-
-    handleMeshResult(chunk, vertices, faces, transparent) {
+    generateMesh(world, chunk, data, transparent = false) {
         var geometry = new BufferGeometry()
         var material = new ShaderMaterial({
             vertexShader: `
@@ -133,23 +116,25 @@ class ChunkRenderer {
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
         this.chunkMeshes.push(surfacemesh)
 
-        const vertexArray = []
-        const indexArray = []
-        const textureOffsetArray = []
+        const result = this.GreedyMesh(world, chunk, data.voxels, data.dims)
 
-        for (let i = 0; i < vertices.length; ++i) {
-            const q = vertices[i]
-            vertexArray.push(q[0], q[1], q[2])
+        const vertices = []
+        const indices = []
+        const textureOffset = []
+
+        for (let i = 0; i < result.vertices.length; ++i) {
+            const q = result.vertices[i]
+            vertices.push(q[0], q[1], q[2])
         }
 
-        for (let i = 0; i < faces.length; ++i) {
-            const q = faces[i]
+        for (let i = 0; i < result.faces.length; ++i) {
+            const q = result.faces[i]
 
             if (q.length === 5) {
-                indexArray.push(q[0], q[1], q[2], q[0], q[2], q[3])
+                indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                 for (let j = 0; j < 4; j++) {
-                    textureOffsetArray.push(q[4][0], q[4][1])
+                    textureOffset.push(q[4][0], q[4][1])
                 }
             }
         }
@@ -157,13 +142,13 @@ class ChunkRenderer {
         // Convert arrays to TypedArrays
         geometry.setAttribute(
             'position',
-            new Float32BufferAttribute(vertexArray, 3)
+            new Float32BufferAttribute(vertices, 3)
         )
 
-        geometry.setIndex(indexArray)
+        geometry.setIndex(indices)
         geometry.setAttribute(
             'textureOffset',
-            new Float32BufferAttribute(textureOffsetArray, 2)
+            new Float32BufferAttribute(textureOffset, 2)
         )
 
         geometry.computeVertexNormals() // Ensures proper shading
@@ -181,6 +166,179 @@ class ChunkRenderer {
                     v[n] = f(i, j, k)
                 }
         return { voxels: v, dims: d }
+    }
+
+    //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
+    GreedyMesh(world, chunk, volume, dims) {
+        var mask = new Int32Array(4096)
+
+        function f(i, j, k) {
+            return volume[i + dims[0] * (j + dims[1] * k)]
+        }
+
+        //Sweep over 3-axes
+        var vertices = [],
+            faces = []
+        for (var d = 0; d < 3; ++d) {
+            var i,
+                j,
+                k,
+                l,
+                w,
+                h,
+                u = (d + 1) % 3,
+                v = (d + 2) % 3,
+                x = [0, 0, 0],
+                q = [0, 0, 0]
+            if (mask.length < dims[u] * dims[v]) {
+                mask = new Int32Array(dims[u] * dims[v])
+            }
+            q[d] = 1
+            for (x[d] = -1; x[d] < dims[d]; ) {
+                //Compute mask
+                var n = 0
+                for (x[v] = 0; x[v] < dims[v]; ++x[v])
+                    for (x[u] = 0; x[u] < dims[u]; ++x[u], ++n) {
+                        var a = 0 <= x[d] ? f(x[0], x[1], x[2]) : 0,
+                            b =
+                                x[d] < dims[d] - 1
+                                    ? f(x[0] + q[0], x[1] + q[1], x[2] + q[2])
+                                    : 0
+
+                        // todo, calculate if block next to mask is solid
+                        if (!!a === !!b) {
+                            mask[n] = 0
+                        } else {
+                            const getBlockMaskValue = (
+                                blockId,
+                                xOffset = 0,
+                                yOffset = 0,
+                                zOffset = 0
+                            ) => {
+                                const currentBlock = Blocks.ids[blockId]
+                                const nextBlock = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0] + xOffset,
+                                    x[1] + yOffset,
+                                    x[2] + zOffset
+                                )
+
+                                return nextBlock &&
+                                    (!nextBlock.transparent ||
+                                        currentBlock.transparent)
+                                    ? 0
+                                    : blockId
+                            }
+                            mask[n] = a
+                                ? getBlockMaskValue(a, q[0], q[1], q[2])
+                                : -getBlockMaskValue(b)
+                        }
+                    }
+                //Increment x[d]
+                ++x[d]
+                //Generate mesh for mask using lexicographic ordering
+                n = 0
+                for (j = 0; j < dims[v]; ++j)
+                    for (i = 0; i < dims[u]; ) {
+                        var c = mask[n]
+                        if (!!c) {
+                            //Compute width
+                            for (
+                                w = 1;
+                                c === mask[n + w] && i + w < dims[u];
+                                ++w
+                            ) {}
+                            //Compute height (this is slightly awkward
+                            var done = false
+                            for (h = 1; j + h < dims[v]; ++h) {
+                                for (k = 0; k < w; ++k) {
+                                    if (c !== mask[n + k + h * dims[u]]) {
+                                        done = true
+                                        break
+                                    }
+                                }
+                                if (done) {
+                                    break
+                                }
+                            }
+                            //Add quad
+                            x[u] = i
+                            x[v] = j
+                            var du = [0, 0, 0],
+                                dv = [0, 0, 0]
+                            if (c > 0) {
+                                dv[v] = h
+                                du[u] = w
+                            } else {
+                                c = -c
+                                du[v] = h
+                                dv[u] = w
+                            }
+                            var vertex_count = vertices.length
+                            vertices.push([x[0], x[1], x[2]])
+                            vertices.push([
+                                x[0] + du[0],
+                                x[1] + du[1],
+                                x[2] + du[2],
+                            ])
+                            vertices.push([
+                                x[0] + du[0] + dv[0],
+                                x[1] + du[1] + dv[1],
+                                x[2] + du[2] + dv[2],
+                            ])
+                            vertices.push([
+                                x[0] + dv[0],
+                                x[1] + dv[1],
+                                x[2] + dv[2],
+                            ])
+
+                            const block = Blocks.ids[c]
+                            let textureOffset = block.textureOffset()
+                            //TOP
+                            if (du[1] == 0 && dv[1] == 0) {
+                                const currentBlock = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0],
+                                    x[1],
+                                    x[2]
+                                )
+                                if (
+                                    currentBlock == null ||
+                                    currentBlock.transparent
+                                ) {
+                                    textureOffset = block.textureOffset('top')
+                                } else {
+                                    textureOffset =
+                                        block.textureOffset('bottom')
+                                }
+                            }
+
+                            faces.push([
+                                vertex_count,
+                                vertex_count + 1,
+                                vertex_count + 2,
+                                vertex_count + 3,
+                                textureOffset,
+                            ])
+
+                            //Zero-out mask
+                            for (l = 0; l < h; ++l)
+                                for (k = 0; k < w; ++k) {
+                                    mask[n + k + l * dims[u]] = 0
+                                }
+                            //Increment counters and continue
+                            i += w
+                            n += w
+                        } else {
+                            ++i
+                            ++n
+                        }
+                    }
+            }
+        }
+        return { vertices: vertices, faces: faces }
     }
 }
 
