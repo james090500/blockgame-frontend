@@ -5,6 +5,8 @@ import BlockGame from '../BlockGame.js'
 import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
 
 class World {
+    lastPlayerX = null
+    lastPlayerZ = null
     chunks = new Map()
     pool = workerpool.pool(ChunkTerrain, {
         maxWorkers: 1,
@@ -31,6 +33,14 @@ class World {
         const playerPosX = Math.floor(playerPos.x / 16)
         const playerPosZ = Math.floor(playerPos.z / 16)
 
+        // Check if player moved
+        if (playerPosX == this.lastPlayerX && playerPosZ == this.lastPlayerZ) {
+            return
+        }
+
+        this.lastPlayerX = playerPosX
+        this.lastPlayerZ = playerPosZ
+
         const worldSize = 8
         const worldSizeSq = worldSize * worldSize
 
@@ -49,6 +59,7 @@ class World {
                 const chunk = new Chunk(chunkX, chunkY)
                 this.chunks.set(key, chunk)
 
+                // Add chunks to a promise so we render when completed
                 const self = this
                 this.pool
                     .exec('chunkTerrain', [
@@ -62,9 +73,6 @@ class World {
                     ])
                     .then((chunkData) => {
                         chunk.chunkData = chunkData
-                    })
-                    .catch(function (err) {
-                        console.error(err)
                     })
                     .then(function () {
                         // Render new chunks

@@ -52,10 +52,8 @@ class ChunkTerrain {
 
     generateTerrain() {
         const perlin = new ImprovedNoise()
-        const smoothness = 25
+        const smoothness = 32
         const waterLevel = 64
-
-        let previousBlock = null
 
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
@@ -71,20 +69,30 @@ class ChunkTerrain {
                         nz / smoothness
                     )
 
+                    // More land than water
+                    density += 0.2
+
                     // Adjust density based on Y value to make it higher at lower Y values
                     const heightFactor = (waterLevel - y) / waterLevel
-                    density += heightFactor
-
                     if (y < waterLevel) {
-                        density += y * 0.006
+                        density += heightFactor * 4
+                    } else {
+                        density += heightFactor * 1.8
                     }
 
                     let nextBlock
-
+                    const previousBlock = this.getBlock(x, y + 1, z)
                     if (density >= 0) {
                         if (
-                            y <= waterLevel + 1 &&
-                            previousBlock === Blocks.waterBlock.id
+                            (y <= waterLevel + 3 && !previousBlock) ||
+                            (previousBlock &&
+                                previousBlock.id == Blocks.waterBlock.id)
+                        ) {
+                            nextBlock = Blocks.sandBlock.id
+                        } else if (
+                            y >= waterLevel &&
+                            previousBlock &&
+                            previousBlock.id == Blocks.sandBlock.id
                         ) {
                             nextBlock = Blocks.sandBlock.id
                         } else if (!previousBlock) {
@@ -101,8 +109,6 @@ class ChunkTerrain {
                     if (nextBlock) {
                         this.setBlock(x, y, z, nextBlock)
                     }
-
-                    previousBlock = nextBlock
                 }
             }
         }

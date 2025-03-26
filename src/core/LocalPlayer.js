@@ -14,6 +14,9 @@ class LocalPlayer {
 
     updateMovement(delta) {
         let moveSpeed = 5
+        if (this.noclip) {
+            moveSpeed = 100
+        }
         const camera = BlockGame.instance.renderer.sceneManager.camera
         const keys = BlockGame.instance.input.keys
         const world = BlockGame.instance.gameManager.world
@@ -60,7 +63,8 @@ class LocalPlayer {
             this.jumping = true
             this.jumpStartTime = this.clock.getElapsedTime()
         } else if (keys.Space && this.noclip) {
-            newPos.add(new Vector3(0, 1, 0).multiplyScalar(moveSpeed * delta))
+            let jumpDir = new Vector3(0, 1, 0)
+            newPos.add(jumpDir.multiplyScalar(moveSpeed * delta))
         }
 
         // Handle jumping
@@ -75,57 +79,57 @@ class LocalPlayer {
         }
 
         // Check X collision separately
-        let block1 = world.getBlock(
-            Math.floor(
-                camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
-            ),
-            Math.floor(camera.position.y),
-            Math.floor(camera.position.z)
-        )
-        let block2 = world.getBlock(
-            Math.floor(
-                camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
-            ),
-            Math.floor(camera.position.y - 0.75),
-            Math.floor(camera.position.z)
-        )
-        if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
-            camera.position.x += newPos.x
-        }
-
-        // Check Z collision separately
-        block1 = world.getBlock(
-            Math.floor(camera.position.x),
-            Math.floor(camera.position.y),
-            Math.floor(
-                camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+        if (!this.noclip) {
+            let block1 = world.getBlock(
+                Math.floor(
+                    camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
+                ),
+                Math.floor(camera.position.y),
+                Math.floor(camera.position.z)
             )
-        )
-        block2 = world.getBlock(
-            Math.floor(camera.position.x),
-            Math.floor(camera.position.y - 0.75),
-            Math.floor(
-                camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+            let block2 = world.getBlock(
+                Math.floor(
+                    camera.position.x + newPos.x + Math.sign(newPos.x) * 0.25
+                ),
+                Math.floor(camera.position.y - 0.75),
+                Math.floor(camera.position.z)
             )
-        )
-        if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
-            camera.position.z += newPos.z
-        }
+            if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
+                camera.position.x += newPos.x
+            }
 
-        // Gravity
-        const belowBlock = world.getBlock(
-            Math.floor(camera.position.x),
-            Math.floor(camera.position.y - 0.75) - 1,
-            Math.floor(camera.position.z)
-        )
-        this.falling = false
-        if (
-            (!belowBlock || belowBlock.id == 5) &&
-            !this.jumping &&
-            !this.noclip
-        ) {
-            this.falling = true
-            camera.position.y -= 7.25 * delta
+            // Check Z collision separately
+            block1 = world.getBlock(
+                Math.floor(camera.position.x),
+                Math.floor(camera.position.y),
+                Math.floor(
+                    camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+                )
+            )
+            block2 = world.getBlock(
+                Math.floor(camera.position.x),
+                Math.floor(camera.position.y - 0.75),
+                Math.floor(
+                    camera.position.z + newPos.z + Math.sign(newPos.z) * 0.25
+                )
+            )
+            if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
+                camera.position.z += newPos.z
+            }
+
+            // Gravity
+            const belowBlock = world.getBlock(
+                Math.floor(camera.position.x),
+                Math.floor(camera.position.y - 0.75) - 1,
+                Math.floor(camera.position.z)
+            )
+            this.falling = false
+            if ((!belowBlock || belowBlock.id == 5) && !this.jumping) {
+                this.falling = true
+                camera.position.y -= 7.25 * delta
+            }
+        } else {
+            camera.position.add(newPos)
         }
     }
 
