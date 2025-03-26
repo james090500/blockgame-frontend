@@ -5,6 +5,7 @@ import Blocks from '../blocks/Blocks'
 
 class LocalPlayer {
     currentBlock = 1
+    noclip = false
     jumping = false
     falling = false
 
@@ -23,6 +24,16 @@ class LocalPlayer {
         dir.normalize()
 
         let newPos = new Vector3(0, 0, 0)
+
+        // Turn on clip
+        if (keys.KeyV) {
+            keys.KeyV = false
+            this.noclip = !this.noclip
+        }
+
+        if (this.noclip && keys.ShiftLeft) {
+            newPos.sub(new Vector3(0, 1, 0).multiplyScalar(moveSpeed * delta))
+        }
 
         if (keys.KeyW) {
             newPos.add(dir.clone().multiplyScalar(moveSpeed * delta))
@@ -44,9 +55,12 @@ class LocalPlayer {
             )
         }
 
-        if (keys.Space && !this.jumping && !this.falling) {
+        // Space
+        if (keys.Space && !this.noclip && !this.jumping && !this.falling) {
             this.jumping = true
             this.jumpStartTime = this.clock.getElapsedTime()
+        } else if (keys.Space && this.noclip) {
+            newPos.add(new Vector3(0, 1, 0).multiplyScalar(moveSpeed * delta))
         }
 
         // Handle jumping
@@ -105,7 +119,11 @@ class LocalPlayer {
             Math.floor(camera.position.z)
         )
         this.falling = false
-        if ((!belowBlock || belowBlock.id == 5) && !this.jumping) {
+        if (
+            (!belowBlock || belowBlock.id == 5) &&
+            !this.jumping &&
+            !this.noclip
+        ) {
             this.falling = true
             camera.position.y -= 7.25 * delta
         }

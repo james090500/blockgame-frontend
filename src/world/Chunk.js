@@ -1,7 +1,6 @@
 import { ImprovedNoise } from 'three/examples/jsm/Addons.js'
 import Blocks from '../blocks/Blocks.js'
 import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
-import { Clock } from 'three'
 
 class Chunk {
     rendered = false
@@ -78,9 +77,11 @@ class Chunk {
         const smoothness = 25
         const waterLevel = 64
 
+        let previousBlock = null
+
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
-                    for (let y = this.chunkHeight - 1; y >= 0; y--) {
+                for (let y = this.chunkHeight - 1; y >= 0; y--) {
                     const nx = x + this.chunkX * this.chunkSize
                     const ny = y
                     const nz = z + this.chunkY * this.chunkSize
@@ -100,20 +101,31 @@ class Chunk {
                         density += y * 0.006
                     }
 
+                    let nextBlock
+
                     if (density >= 0) {
-                        if (y <= waterLevel + 1) {
-                            this.setBlock(x, y, z, Blocks.sandBlock.id)
-                        } else if (!this.getBlock(x, y + 1, z)) {
-                            this.setBlock(x, y, z, Blocks.grassBlock.id)
+                        if (
+                            y <= waterLevel + 1 &&
+                            previousBlock === Blocks.waterBlock.id
+                        ) {
+                            nextBlock = Blocks.sandBlock.id
+                        } else if (!previousBlock) {
+                            nextBlock = Blocks.grassBlock.id
                         } else if (!this.getBlock(x, y + 4, z)) {
-                            this.setBlock(x, y, z, Blocks.dirtBlock.id)
+                            nextBlock = Blocks.dirtBlock.id
                         } else {
-                            this.setBlock(x, y, z, Blocks.stoneBlock.id)
+                            nextBlock = Blocks.stoneBlock.id
                         }
                     } else if (y <= waterLevel) {
-                        this.setBlock(x, y, z, Blocks.waterBlock.id)
+                        nextBlock = Blocks.waterBlock.id
                     }
-                // }
+
+                    if (nextBlock) {
+                        this.setBlock(x, y, z, nextBlock)
+                    }
+
+                    previousBlock = nextBlock
+                }
             }
         }
     }

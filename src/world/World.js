@@ -6,7 +6,6 @@ const { Noise } = noisePkg
 
 class World {
     chunks = new Map()
-    clock = new Clock()
 
     constructor() {
         // Ambient Light
@@ -30,8 +29,6 @@ class World {
 
         const worldSize = 8
         const worldSizeSq = worldSize * worldSize
-
-        this.clock.getDelta()
 
         for (let dx = -worldSize; dx <= worldSize; dx++) {
             for (let dy = -worldSize; dy <= worldSize; dy++) {
@@ -63,14 +60,11 @@ class World {
         }
 
         // Render new chunks
-        let temp1 = 0
         for (const chunk of this.chunks.values()) {
             if (!chunk.rendered) {
-                temp1++
                 chunk.render(this)
             }
         }
-        console.log(temp1)
 
         // Remove old chunks
         for (const [key, chunk] of this.chunks) {
@@ -84,11 +78,6 @@ class World {
                 chunk.chunkRenderer.dispose()
                 this.chunks.delete(key)
             }
-        }
-
-        const temp = this.clock.getDelta()
-        if (temp > 0.05) {
-            console.log(temp)
         }
     }
 
