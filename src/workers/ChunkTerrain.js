@@ -70,21 +70,23 @@ class ChunkTerrain {
                     )
 
                     // More land than water
-                    density += 0.2
+                    density += 0.3
 
                     // Adjust density based on Y value to make it higher at lower Y values
                     const heightFactor = (waterLevel - y) / waterLevel
                     if (y < waterLevel) {
                         density += heightFactor * 4
+                    } else if (density < 0.5) {
+                        density += heightFactor * 4
                     } else {
-                        density += heightFactor * 1.8
+                        density += heightFactor * 2
                     }
 
                     let nextBlock
                     const previousBlock = this.getBlock(x, y + 1, z)
                     if (density >= 0) {
                         if (
-                            (y <= waterLevel + 3 && !previousBlock) ||
+                            (y <= waterLevel + 2 && !previousBlock) ||
                             (previousBlock &&
                                 previousBlock.id == Blocks.waterBlock.id)
                         ) {
