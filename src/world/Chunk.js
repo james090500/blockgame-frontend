@@ -2,22 +2,38 @@ import Blocks from '../blocks/Blocks.js'
 import ChunkRenderer from '../renderer/world/ChunkRenderer.js'
 
 class Chunk {
+    generated = false
     rendered = false
     chunkRenderer = new ChunkRenderer()
     chunkX = 0
     chunkY = 0
     chunkSize = 16
     chunkHeight = 300
-    chunkData
-    chunkWorker
+    chunkData = null
 
     constructor(chunkX, chunkY) {
         this.chunkX = chunkX
         this.chunkY = chunkY
+    }
 
-        this.chunkData = new Uint32Array(
-            this.chunkSize * this.chunkSize * this.chunkHeight
-        )
+    maybeRenderChunk(world) {
+        if (this.rendered || this.chunkData == null) return
+
+        const getChunk = (x, y) => world.chunks.get(`${x},${y}`)
+
+        const neighbors = [
+            getChunk(this.chunkX + 1, this.chunkY),
+            getChunk(this.chunkX - 1, this.chunkY),
+            getChunk(this.chunkX, this.chunkY + 1),
+            getChunk(this.chunkX, this.chunkY - 1),
+        ]
+
+        // Check if all neighbors are present and have data
+        const allReady = neighbors.every((c) => c && c.generated)
+
+        if (allReady && !this.rendered) {
+            this.render(world)
+        }
     }
 
     render(world) {
@@ -37,6 +53,10 @@ class Chunk {
             z > this.chunkSize
         ) {
             return null
+        }
+
+        if (this.chunkData == null) {
+            throw new Error('Chunk data not populated')
         }
 
         const index =

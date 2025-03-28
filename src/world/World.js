@@ -30,6 +30,11 @@ class World {
         const playerPos =
             BlockGame.instance.renderer.sceneManager.camera.position
 
+        // This needs moving I believe to stop infinite loops
+        for (const chunk of this.chunks.values()) {
+            chunk.maybeRenderChunk(this)
+        }
+
         const playerPosX = Math.floor(playerPos.x / 16)
         const playerPosZ = Math.floor(playerPos.z / 16)
 
@@ -44,6 +49,7 @@ class World {
         const worldSize = 8
         const worldSizeSq = worldSize * worldSize
 
+        // Loop through the render distance
         for (let dx = -worldSize; dx <= worldSize; dx++) {
             for (let dy = -worldSize; dy <= worldSize; dy++) {
                 const distSq = dx * dx + dy * dy
@@ -60,7 +66,6 @@ class World {
                 this.chunks.set(key, chunk)
 
                 // Add chunks to a promise so we render when completed
-                const self = this
                 this.pool
                     .exec('chunkTerrain', [
                         {
@@ -73,13 +78,9 @@ class World {
                     ])
                     .then((chunkData) => {
                         chunk.chunkData = chunkData
-                    })
-                    .then(function () {
-                        // Render new chunks
-                        if (!chunk.rendered) {
-                            chunk.render(self)
-                        }
-                        pool.terminate() // terminate all workers when done
+                        chunk.generated = true
+
+                        chunk.maybeRenderChunk(this)
                     })
 
                 // Mark adjacent chunks for re-rendering
@@ -88,7 +89,8 @@ class World {
                         if (d === 0 && e === 0) continue
                         const neighborKey = `${chunkX + d},${chunkY + e}`
                         if (this.chunks.has(neighborKey)) {
-                            this.chunks.get(neighborKey).rendered = false
+                            const chunk = this.chunks.get(neighborKey)
+                            chunk.rendered = false
                         }
                     }
                 }
@@ -168,7 +170,7 @@ class World {
         }
 
         const chunk = this.chunks.get(`${chunkX},${chunkY}`)
-        if (chunk != null) {
+        if (chunk != null && chunk.generated) {
             const chunkBlockX = x
             const chunkBlockZ = z
             const block = chunk.getBlock(chunkBlockX, y, chunkBlockZ)

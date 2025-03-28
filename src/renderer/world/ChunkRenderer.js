@@ -209,31 +209,71 @@ class ChunkRenderer {
                         if (!!a === !!b) {
                             mask[n] = 0
                         } else {
-                            const getBlockMaskValue = (
-                                blockId,
-                                xOffset = 0,
-                                yOffset = 0,
-                                zOffset = 0
-                            ) => {
-                                const currentBlock = Blocks.ids[blockId]
+                            if (!!a) {
+                                const currentBlock = Blocks.ids[a]
                                 const nextBlock = world.getChunkBlock(
                                     chunk.chunkX,
                                     chunk.chunkY,
-                                    x[0] + xOffset,
-                                    x[1] + yOffset,
-                                    x[2] + zOffset
+                                    x[0] + q[0],
+                                    x[1] + q[1],
+                                    x[2] + q[2]
                                 )
-
-                                return nextBlock &&
+                                if (
+                                    nextBlock != null &&
                                     (!nextBlock.transparent ||
                                         currentBlock.transparent)
-                                    ? 0
-                                    : blockId
+                                ) {
+                                    mask[n] = 0
+                                } else {
+                                    mask[n] = a
+                                }
+                            } else {
+                                const currentBlock = Blocks.ids[b]
+                                const nextBlock = world.getChunkBlock(
+                                    chunk.chunkX,
+                                    chunk.chunkY,
+                                    x[0],
+                                    x[1],
+                                    x[2]
+                                )
+
+                                if (
+                                    nextBlock != null &&
+                                    (!nextBlock.transparent ||
+                                        currentBlock.transparent)
+                                ) {
+                                    mask[n] = 0
+                                } else {
+                                    mask[n] = -b
+                                }
                             }
-                            mask[n] = a
-                                ? getBlockMaskValue(a, q[0], q[1], q[2])
-                                : -getBlockMaskValue(b)
                         }
+                        // } else {
+                        //     const getBlockMaskValue = (
+                        //         blockId,
+                        //         xOffset = 0,
+                        //         yOffset = 0,
+                        //         zOffset = 0
+                        //     ) => {
+                        //         const currentBlock = Blocks.ids[blockId]
+                        //         const nextBlock = world.getChunkBlock(
+                        //             chunk.chunkX,
+                        //             chunk.chunkY,
+                        //             x[0] + xOffset,
+                        //             x[1] + yOffset,
+                        //             x[2] + zOffset
+                        //         )
+
+                        //         return nextBlock &&
+                        //             (!nextBlock.transparent ||
+                        //                 currentBlock.transparent)
+                        //             ? 0
+                        //             : blockId
+                        //     }
+                        //     mask[n] = a
+                        //         ? getBlockMaskValue(a, q[0], q[1], q[2])
+                        //         : -getBlockMaskValue(b)
+                        // }
                     }
                 //Increment x[d]
                 ++x[d]
