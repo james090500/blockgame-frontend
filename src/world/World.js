@@ -1,5 +1,5 @@
 import workerpool from 'workerpool'
-import { HemisphereLight, Color } from 'three'
+import { HemisphereLight, Color, Clock } from 'three'
 import Chunk from './Chunk.js'
 import BlockGame from '../BlockGame.js'
 import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
@@ -50,48 +50,61 @@ class World {
         const worldSizeSq = worldSize * worldSize
 
         // Loop through the render distance
+        const offsets = []
+
         for (let dx = -worldSize; dx <= worldSize; dx++) {
             for (let dy = -worldSize; dy <= worldSize; dy++) {
                 const distSq = dx * dx + dy * dy
-                if (distSq > worldSizeSq) continue
+                if (distSq <= worldSizeSq) {
+                    offsets.push({ dx, dy, distSq })
+                }
+            }
+        }
 
-                const chunkX = playerPosX + dx
-                const chunkY = playerPosZ + dy
-                const key = `${chunkX},${chunkY}`
+        // Sort by distance from center (0,0), so we radiate outward
+        offsets.sort((a, b) => a.distSq - b.distSq)
 
-                if (this.chunks.has(key)) continue
+        // Loop through the sorted offsets
+        for (const { dx, dy } of offsets) {
+            const distSq = dx * dx + dy * dy
+            if (distSq > worldSizeSq) continue
 
-                // Create and store new chunk
-                const chunk = new Chunk(chunkX, chunkY)
-                this.chunks.set(key, chunk)
+            const chunkX = playerPosX + dx
+            const chunkY = playerPosZ + dy
+            const key = `${chunkX},${chunkY}`
 
-                // Add chunks to a promise so we render when completed
-                this.pool
-                    .exec('chunkTerrain', [
-                        {
-                            seed: this.worldSeed,
-                            x: chunkX,
-                            y: chunkY,
-                            size: chunk.chunkSize,
-                            height: chunk.chunkHeight,
-                        },
-                    ])
-                    .then((chunkData) => {
-                        chunk.chunkData = chunkData
-                        chunk.generated = true
+            if (this.chunks.has(key)) continue
 
-                        chunk.maybeRenderChunk(this)
-                    })
+            // Create and store new chunk
+            const chunk = new Chunk(chunkX, chunkY)
+            this.chunks.set(key, chunk)
 
-                // Mark adjacent chunks for re-rendering
-                for (let d = -1; d <= 1; d++) {
-                    for (let e = -1; e <= 1; e++) {
-                        if (d === 0 && e === 0) continue
-                        const neighborKey = `${chunkX + d},${chunkY + e}`
-                        if (this.chunks.has(neighborKey)) {
-                            const chunk = this.chunks.get(neighborKey)
-                            chunk.rendered = false
-                        }
+            // Add chunks to a promise so we render when completed
+            this.pool
+                .exec('chunkTerrain', [
+                    {
+                        seed: this.worldSeed,
+                        x: chunkX,
+                        y: chunkY,
+                        size: chunk.chunkSize,
+                        height: chunk.chunkHeight,
+                    },
+                ])
+                .then((chunkData) => {
+                    chunk.chunkData = chunkData
+                    chunk.generated = true
+
+                    chunk.maybeRenderChunk(this)
+                })
+
+            // Mark adjacent chunks for re-rendering
+            for (let d = -1; d <= 1; d++) {
+                for (let e = -1; e <= 1; e++) {
+                    if (d === 0 && e === 0) continue
+                    const neighborKey = `${chunkX + d},${chunkY + e}`
+                    if (this.chunks.has(neighborKey)) {
+                        const chunk = this.chunks.get(neighborKey)
+                        chunk.rendered = false
                     }
                 }
             }

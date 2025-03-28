@@ -10,12 +10,13 @@ class LocalPlayer {
     falling = false
 
     clock = new Clock()
+    velocity = new Vector3(0, 0, 0)
     jumpStartTime = 0
 
     updateMovement(delta) {
-        let moveSpeed = 5
+        let moveSpeed = 4.3
         if (this.noclip) {
-            moveSpeed = 100
+            moveSpeed = 10
         }
         const camera = BlockGame.instance.renderer.sceneManager.camera
         const keys = BlockGame.instance.input.keys
@@ -58,26 +59,6 @@ class LocalPlayer {
             )
         }
 
-        // Space
-        if (keys.Space && !this.noclip && !this.jumping && !this.falling) {
-            this.jumping = true
-            this.jumpStartTime = this.clock.getElapsedTime()
-        } else if (keys.Space && this.noclip) {
-            let jumpDir = new Vector3(0, 1, 0)
-            newPos.add(jumpDir.multiplyScalar(moveSpeed * delta))
-        }
-
-        // Handle jumping
-        if (this.jumping) {
-            const elapsedTime = this.clock.getElapsedTime() - this.jumpStartTime
-            if (elapsedTime < 0.5) {
-                let jump = MathUtils.lerp(0, 7.25, elapsedTime / 0.5) * delta
-                camera.position.y += jump
-            } else {
-                this.jumping = false
-            }
-        }
-
         // Check X collision separately
         if (!this.noclip) {
             let block1 = world.getBlock(
@@ -95,7 +76,7 @@ class LocalPlayer {
                 Math.floor(camera.position.z)
             )
             if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
-                camera.position.x += newPos.x
+                newPos.x += newPos.x
             }
 
             // Check Z collision separately
@@ -114,7 +95,7 @@ class LocalPlayer {
                 )
             )
             if ((!block1 || block1.id == 5) && (!block2 || block2.id == 5)) {
-                camera.position.z += newPos.z
+                newPos.z += newPos.z
             }
 
             // Gravity
@@ -123,11 +104,16 @@ class LocalPlayer {
                 Math.floor(camera.position.y - 0.75) - 1,
                 Math.floor(camera.position.z)
             )
+
             this.falling = false
             if ((!belowBlock || belowBlock.id == 5) && !this.jumping) {
                 this.falling = true
-                camera.position.y -= 7.25 * delta
+                this.velocity.y -= 3.2 * delta
             }
+
+            this.velocity.addScaledVector(this.velocity, 4.3 * -delta)
+            console.log(this.velocity)
+            camera.position.add(this.velocity)
         } else {
             camera.position.add(newPos)
         }

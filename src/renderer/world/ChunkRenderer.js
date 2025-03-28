@@ -3,7 +3,6 @@ import {
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
-    Clock,
 } from 'three'
 import TextureManager from '../../utils/TextureManager.js'
 import Blocks from '../../blocks/Blocks.js'
@@ -11,8 +10,12 @@ import BlockGame from '../../BlockGame'
 
 class ChunkRenderer {
     chunkMeshes = []
-    clock = new Clock()
 
+    /**
+     * Render solid blocks in the world
+     * @param {*} world
+     * @param {*} chunk
+     */
     render(world, chunk) {
         const data = this.makeVoxels(
             [0, 0, 0],
@@ -26,6 +29,11 @@ class ChunkRenderer {
         this.generateMesh(world, chunk, data)
     }
 
+    /**
+     * Render transparent blocks in the world
+     * @param {*} world
+     * @param {*} chunk
+     */
     renderTransparent(world, chunk) {
         const data = this.makeVoxels(
             [0, 0, 0],
@@ -39,12 +47,22 @@ class ChunkRenderer {
         this.generateMesh(world, chunk, data, true)
     }
 
+    /**
+     * Dispose of the mesh
+     */
     dispose() {
         this.chunkMeshes.forEach((mesh) => {
             BlockGame.instance.renderer.sceneManager.remove(mesh)
         })
     }
 
+    /**
+     * Generate the greedy mesh
+     * @param {*} world
+     * @param {*} chunk
+     * @param {*} data
+     * @param {*} transparent
+     */
     generateMesh(world, chunk, data, transparent = false) {
         var geometry = new BufferGeometry()
         var material = new ShaderMaterial({
@@ -209,71 +227,31 @@ class ChunkRenderer {
                         if (!!a === !!b) {
                             mask[n] = 0
                         } else {
-                            if (!!a) {
-                                const currentBlock = Blocks.ids[a]
+                            const getBlockMaskValue = (
+                                blockId,
+                                xOffset = 0,
+                                yOffset = 0,
+                                zOffset = 0
+                            ) => {
+                                const currentBlock = Blocks.ids[blockId]
                                 const nextBlock = world.getChunkBlock(
                                     chunk.chunkX,
                                     chunk.chunkY,
-                                    x[0] + q[0],
-                                    x[1] + q[1],
-                                    x[2] + q[2]
-                                )
-                                if (
-                                    nextBlock != null &&
-                                    (!nextBlock.transparent ||
-                                        currentBlock.transparent)
-                                ) {
-                                    mask[n] = 0
-                                } else {
-                                    mask[n] = a
-                                }
-                            } else {
-                                const currentBlock = Blocks.ids[b]
-                                const nextBlock = world.getChunkBlock(
-                                    chunk.chunkX,
-                                    chunk.chunkY,
-                                    x[0],
-                                    x[1],
-                                    x[2]
+                                    x[0] + xOffset,
+                                    x[1] + yOffset,
+                                    x[2] + zOffset
                                 )
 
-                                if (
-                                    nextBlock != null &&
+                                return nextBlock &&
                                     (!nextBlock.transparent ||
                                         currentBlock.transparent)
-                                ) {
-                                    mask[n] = 0
-                                } else {
-                                    mask[n] = -b
-                                }
+                                    ? 0
+                                    : blockId
                             }
+                            mask[n] = a
+                                ? getBlockMaskValue(a, q[0], q[1], q[2])
+                                : -getBlockMaskValue(b)
                         }
-                        // } else {
-                        //     const getBlockMaskValue = (
-                        //         blockId,
-                        //         xOffset = 0,
-                        //         yOffset = 0,
-                        //         zOffset = 0
-                        //     ) => {
-                        //         const currentBlock = Blocks.ids[blockId]
-                        //         const nextBlock = world.getChunkBlock(
-                        //             chunk.chunkX,
-                        //             chunk.chunkY,
-                        //             x[0] + xOffset,
-                        //             x[1] + yOffset,
-                        //             x[2] + zOffset
-                        //         )
-
-                        //         return nextBlock &&
-                        //             (!nextBlock.transparent ||
-                        //                 currentBlock.transparent)
-                        //             ? 0
-                        //             : blockId
-                        //     }
-                        //     mask[n] = a
-                        //         ? getBlockMaskValue(a, q[0], q[1], q[2])
-                        //         : -getBlockMaskValue(b)
-                        // }
                     }
                 //Increment x[d]
                 ++x[d]
