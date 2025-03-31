@@ -73,7 +73,7 @@ class LocalPlayer {
      * @param {number} delta - Time since last frame.
      */
     updateMovement(delta) {
-        let moveSpeed = 0.35
+        let moveSpeed = 0.45
 
         // Get necessary references
         const camera = BlockGame.instance.renderer.sceneManager.camera
@@ -92,7 +92,7 @@ class LocalPlayer {
         }
 
         // Dampen movement
-        this.velocity.lerp(new Vector3(0, 0, 0), 10 * delta)
+        this.velocity.lerp(new Vector3(0, 0, 0), 15 * delta)
 
         // Apply input movement and apply friction
         if (keys.KeyW) {
