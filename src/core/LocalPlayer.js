@@ -4,6 +4,7 @@ import WaterBlock from '../blocks/WaterBlock'
 import Blocks from '../blocks/Blocks'
 
 class LocalPlayer {
+    // Player state
     currentBlock = 1
     noclip = false
     jumping = false
@@ -15,9 +16,66 @@ class LocalPlayer {
     fallVelocity = new Vector3(0, 0, 0)
     jumpStartTime = 0
 
+    /**
+     * Checks if the player's AABB collides with any solid blocks in the world.
+     * @param {Vector3} min - Minimum bounds of the AABB.
+     * @param {Vector3} max - Maximum bounds of the AABB.
+     * @param {Object} world - The world object to query blocks from.
+     * @returns {boolean} True if a collision is found.
+     */
+    isAABBColliding(min, max, world) {
+        if (this.noclip) {
+            return false
+        }
+
+        for (let x = Math.floor(min.x); x <= Math.floor(max.x); x++) {
+            for (let y = Math.floor(min.y); y <= Math.floor(max.y); y++) {
+                for (let z = Math.floor(min.z); z <= Math.floor(max.z); z++) {
+                    if (world.getBlock(x, y, z)) {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Attempts to move the camera along a single axis while checking for AABB collisions.
+     * @param {PerspectiveCamera} camera - The camera to move.
+     * @param {Vector3} velocity - The velocity vector.
+     * @param {string} axis - The axis to apply movement ('x', 'y', or 'z').
+     * @param {number} halfWidth - Half the width of the player's bounding box.
+     * @param {number} playerHeight - Height of the player.
+     * @param {Object} world - The world object to query blocks from.
+     * @returns {boolean} True if the move was successful.
+     */
+    tryMove(camera, velocity, axis, halfWidth, playerHeight, world) {
+        const pos = camera.position.clone()
+        pos[axis] += velocity[axis]
+
+        const min = new Vector3(
+            pos.x - halfWidth,
+            pos.y - playerHeight,
+            pos.z - halfWidth
+        )
+        const max = new Vector3(pos.x + halfWidth, pos.y, pos.z + halfWidth)
+
+        if (!this.isAABBColliding(min, max, world)) {
+            camera.position[axis] = pos[axis]
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Updates player movement based on input and applies gravity and collision.
+     * @param {number} delta - Time since last frame.
+     */
     updateMovement(delta) {
         let moveSpeed = 0.35
 
+        // Get necessary references
         const camera = BlockGame.instance.renderer.sceneManager.camera
         const keys = BlockGame.instance.input.keys
         const world = BlockGame.instance.gameManager.world
@@ -27,15 +85,16 @@ class LocalPlayer {
         dir.y = 0
         dir.normalize()
 
-        // Turn on clip
+        // Handle noclip toggle
         if (keys.KeyV) {
             keys.KeyV = false
             this.noclip = !this.noclip
         }
 
-        //Dampen movement
+        // Dampen movement
         this.velocity.lerp(new Vector3(0, 0, 0), 10 * delta)
 
+        // Apply input movement and apply friction
         if (keys.KeyW) {
             this.velocity.add(dir.clone().multiplyScalar(moveSpeed * delta))
         }
@@ -56,162 +115,77 @@ class LocalPlayer {
             )
         }
 
-        // Calculate AABB size
-        const nextPos = camera.position
-            .clone()
-            .add(new Vector3(this.velocity.x, 0, this.velocity.z))
-        const halfWidth = 0.2
-        const aabbMin = new Vector3(
-            nextPos.x - halfWidth,
-            nextPos.y - this.playerHeight,
-            nextPos.z - halfWidth
-        )
-        const aabbMax = new Vector3(
-            nextPos.x + halfWidth,
-            nextPos.y,
-            nextPos.z + halfWidth
-        )
-
-        let collided = false
-        for (let x = Math.floor(aabbMin.x); x <= Math.floor(aabbMax.x); x++) {
-            for (
-                let y = Math.floor(aabbMin.y);
-                y <= Math.ceil(aabbMax.y);
-                y++
-            ) {
-                for (
-                    let z = Math.floor(aabbMin.z);
-                    z <= Math.floor(aabbMax.z);
-                    z++
-                ) {
-                    if (world.getBlock(x, y, z)) {
-                        collided = true
-                    }
-                }
-            }
+        // Start jump if grounded and Space is pressed
+        if (!this.jumping && !this.falling && keys.Space) {
+            keys.Space = false
+            this.jumping = true
+            this.jumpStartTime = this.clock.getElapsedTime()
         }
 
-        if (!collided) {
-            camera.position.copy(nextPos)
+        const timeSinceJump = this.clock.getElapsedTime() - this.jumpStartTime
+        const maxJumpTime = 0.2 // Adjust for smooth 1.2 block rise
+
+        // Ascend phase
+        if (this.jumping && timeSinceJump < maxJumpTime) {
+            this.fallVelocity.y = 5 // Initial jump velocity upward
         } else {
-            // Try sliding along X
-            const slideX = camera.position
-                .clone()
-                .add(new Vector3(this.velocity.x, 0, 0))
-            const slideMinX = new Vector3(
-                slideX.x - halfWidth,
-                slideX.y - this.playerHeight,
-                slideX.z - halfWidth
-            )
-            const slideMaxX = new Vector3(
-                slideX.x + halfWidth,
-                slideX.y,
-                slideX.z + halfWidth
-            )
-            let xClear = true
-            for (
-                let x = Math.floor(slideMinX.x);
-                x <= Math.floor(slideMaxX.x);
-                x++
-            ) {
-                for (
-                    let y = Math.floor(slideMinX.y);
-                    y <= Math.floor(slideMaxX.y);
-                    y++
-                ) {
-                    for (
-                        let z = Math.floor(slideMinX.z);
-                        z <= Math.floor(slideMaxX.z);
-                        z++
-                    ) {
-                        if (world.getBlock(x, y, z)) {
-                            xClear = false
-                        }
-                    }
-                }
-            }
-            if (xClear) camera.position.x = slideX.x
-
-            // Try sliding along Z
-            const slideZ = camera.position
-                .clone()
-                .add(new Vector3(0, 0, this.velocity.z))
-            const slideMinZ = new Vector3(
-                slideZ.x - halfWidth,
-                slideZ.y - this.playerHeight,
-                slideZ.z - halfWidth
-            )
-            const slideMaxZ = new Vector3(
-                slideZ.x + halfWidth,
-                slideZ.y,
-                slideZ.z + halfWidth
-            )
-            let zClear = true
-            for (
-                let x = Math.floor(slideMinZ.x);
-                x <= Math.floor(slideMaxZ.x);
-                x++
-            ) {
-                for (
-                    let y = Math.floor(slideMinZ.y);
-                    y <= Math.floor(slideMaxZ.y);
-                    y++
-                ) {
-                    for (
-                        let z = Math.floor(slideMinZ.z);
-                        z <= Math.floor(slideMaxZ.z);
-                        z++
-                    ) {
-                        if (world.getBlock(x, y, z)) {
-                            zClear = false
-                        }
-                    }
-                }
-            }
-            if (zClear) camera.position.z = slideZ.z
+            this.jumping = false
         }
 
-        // Apply gravity
-        const gravity = 50 // m/s²
-        const terminalVelocity = -90 // Max fall speed
-        this.fallVelocity.y -= gravity * delta
-        if (this.fallVelocity.y < terminalVelocity) {
-            this.fallVelocity.y = terminalVelocity
+        // Apply gravity if not jumping
+        if (!this.noclip && !this.jumping) {
+            const gravity = 50
+            const terminalVelocity = -90
+            this.fallVelocity.y -= gravity * delta
+            if (this.fallVelocity.y < terminalVelocity) {
+                this.fallVelocity.y = terminalVelocity
+            }
+        } else if (!this.jumping) {
+            this.fallVelocity.y = 0
         }
-
-        // Check vertical collision
         const yVelocity = this.fallVelocity.y * delta
-        const yStep = camera.position.clone().add(new Vector3(0, yVelocity, 0))
 
-        const yMin = new Vector3(
-            yStep.x - halfWidth,
-            yStep.y - this.playerHeight,
-            yStep.z - halfWidth
-        )
-        const yMax = new Vector3(
-            yStep.x + halfWidth,
-            yStep.y,
-            yStep.z + halfWidth
-        )
-
-        let yBlocked = false
-        for (let x = Math.floor(yMin.x); x <= Math.floor(yMax.x); x++) {
-            for (let y = Math.floor(yMin.y); y <= Math.floor(yMax.y); y++) {
-                for (let z = Math.floor(yMin.z); z <= Math.floor(yMax.z); z++) {
-                    if (world.getBlock(x, y, z)) {
-                        yBlocked = true
-                    }
-                }
-            }
+        // Half the players width
+        const halfWidth = 0.2
+        if (
+            !this.tryMove(
+                camera,
+                new Vector3(0, yVelocity, 0),
+                'y',
+                halfWidth,
+                this.playerHeight,
+                world
+            )
+        ) {
+            this.fallVelocity.y = 0
+            this.falling = false
+        } else if (!this.noclip) {
+            this.falling = true
         }
 
-        if (!yBlocked) {
-            camera.position.y += yVelocity
-        } else {
-            this.fallVelocity.y = 0 // Reset fall speed on ground collision
-        }
+        // Try horizontal movement along X and Z axes
+        this.tryMove(
+            camera,
+            this.velocity,
+            'x',
+            halfWidth,
+            this.playerHeight,
+            world
+        )
+        this.tryMove(
+            camera,
+            this.velocity,
+            'z',
+            halfWidth,
+            this.playerHeight,
+            world
+        )
     }
 
+    /**
+     * Handles block interaction using raycasting from the camera.
+     * @param {number} delta - Time since last frame.
+     */
     updateInteraction(delta) {
         const mouse = BlockGame.instance.input.mouse
         if (mouse.LeftClick) {
@@ -265,6 +239,13 @@ class LocalPlayer {
         }
     }
 
+    /**
+     * Casts a ray from origin in a given direction and calls onHit when a block is intersected.
+     * @param {Vector3} origin - Start position of the ray.
+     * @param {Vector3} direction - Normalized direction vector of the ray.
+     * @param {number} maxDistance - Maximum distance to check along the ray.
+     * @param {function} onHit - Callback that receives block coordinates.
+     */
     traverseRay(origin, direction, maxDistance, onHit) {
         let x = Math.floor(origin.x)
         let y = Math.floor(origin.y)
@@ -321,7 +302,8 @@ class LocalPlayer {
     }
 
     /**
-     * Update the controls
+     * Update movement and interaction logic each frame.
+     * @param {number} delta - Time since last frame.
      */
     render(delta) {
         this.updateMovement(delta)
