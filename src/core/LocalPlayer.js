@@ -192,45 +192,55 @@ class LocalPlayer {
      */
     updateInteraction(delta) {
         const mouse = BlockGame.instance.input.mouse
+        const camera = BlockGame.instance.renderer.sceneManager.camera
+        const world = BlockGame.instance.gameManager.world
+        const dir = new Vector3()
+        camera.getWorldDirection(dir)
+
+        let lastBlock
+        let currentBlock
+        let previousBlock
+        this.traverseRay(camera.position, dir, 5, (x, y, z) => {
+            lastBlock = world.getBlock(x, y, z)
+            currentBlock = [x, y, z]
+            if (lastBlock && !(lastBlock instanceof WaterBlock)) {
+                BlockGame.instance.gameManager.playerGui.blockOverlay.show()
+                return true
+            } else {
+                BlockGame.instance.gameManager.playerGui.blockOverlay.hide()
+            }
+            previousBlock = [x, y, z]
+        })
+
         if (mouse.LeftClick) {
             mouse.LeftClick = false
 
-            const camera = BlockGame.instance.renderer.sceneManager.camera
-            const dir = new Vector3()
-            camera.getWorldDirection(dir)
-
-            const world = BlockGame.instance.gameManager.world
-            this.traverseRay(camera.position, dir, 5, (x, y, z) => {
-                const block = world.getBlock(x, y, z)
-                if (block && !(block instanceof WaterBlock)) {
-                    world.setBlock(x, y, z, null)
-                    return true
-                }
-            })
+            world.setBlock(
+                currentBlock[0],
+                currentBlock[1],
+                currentBlock[2],
+                null
+            )
         }
 
         if (mouse.RightClick) {
             mouse.RightClick = false
 
-            const camera = BlockGame.instance.renderer.sceneManager.camera
-            const dir = new Vector3()
-            camera.getWorldDirection(dir)
+            if (lastBlock && !(lastBlock instanceof WaterBlock)) {
+                world.setBlock(
+                    previousBlock[0],
+                    previousBlock[1],
+                    previousBlock[2],
+                    this.currentBlock
+                )
+            }
+        }
 
-            const world = BlockGame.instance.gameManager.world
-            let prevLocation
-            this.traverseRay(camera.position, dir, 5, (x, y, z) => {
-                const block = world.getBlock(x, y, z)
-                if (block && !(block instanceof WaterBlock)) {
-                    world.setBlock(
-                        prevLocation[0],
-                        prevLocation[1],
-                        prevLocation[2],
-                        this.currentBlock
-                    )
-                    return true
-                }
-                prevLocation = [x, y, z]
-            })
+        // Move the block overlay
+        if (BlockGame.instance.gameManager.playerGui) {
+            BlockGame.instance.gameManager.playerGui.blockOverlay.updatePosition(
+                currentBlock
+            )
         }
 
         const keys = BlockGame.instance.input.keys
