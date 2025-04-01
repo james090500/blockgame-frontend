@@ -1,12 +1,24 @@
-import {
-    ShaderMaterial,
-    Mesh,
-    BufferGeometry,
-    Float32BufferAttribute,
-} from 'three'
+import { Mesh, BufferGeometry, Float32BufferAttribute } from 'three'
 import TextureManager from '../../utils/TextureManager.js'
 import Blocks from '../../blocks/Blocks.js'
 import BlockGame from '../../BlockGame'
+import { MeshBasicNodeMaterial, NodeAttribute } from 'three/webgpu'
+import {
+    vec2,
+    vec3,
+    float,
+    positionLocal,
+    normalLocal,
+    add,
+    mul,
+    fract,
+    texture,
+    uv,
+    select,
+    abs,
+    greaterThan,
+    lessThan,
+} from 'three/tsl'
 
 class ChunkRenderer {
     chunkMeshes = []
@@ -54,7 +66,7 @@ class ChunkRenderer {
             }
         )
 
-        this.generateMesh(world, chunk, data, true)
+        // this.generateMesh(world, chunk, data, true)
     }
 
     /**
@@ -74,83 +86,7 @@ class ChunkRenderer {
      * @param {*} transparent
      */
     generateMesh(world, chunk, data, transparent = false) {
-        var geometry = new BufferGeometry()
-        var material = new ShaderMaterial({
-            vertexShader: `
-                attribute vec2 textureOffset;
-                attribute float lighting;
-
-                varying vec2 vUv;
-                varying vec3 vNormal;
-                varying vec3 vPosition;
-                varying vec2 vTexOffset;
-                varying float vLighting;
-
-                void main() {
-                    vUv = uv;
-                    vNormal = normalize(normal);
-                    vPosition = position;
-                    vTexOffset = textureOffset;
-                    vLighting = lighting;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform sampler2D baseTexture;
-                uniform vec2 tileOffset;
-                uniform vec2 tileSize;
-
-                varying vec2 vUv;
-                varying vec3 vNormal;
-                varying vec3 vPosition;
-                varying vec2 vTexOffset;
-                varying float vLighting;
-
-                void main() {
-                    vec4 blockLighting;
-                    float faceLight = 1.0;
-                    vec2 tileSize = vec2(0.0625, 0.0625);
-                    vec2 tileUV;
-
-                    // Determine correct UV projection based on face normal
-                    if (abs(vNormal.x) > 0.5) {  // Left/Right faces
-                        faceLight = 0.8;
-                        tileUV = vec2(vPosition.z, vPosition.y);
-                    } else if (vNormal.y > 0.5) {  // Top Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
-                    } else if (vNormal.y < -0.5) {  // Bottom Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
-                        faceLight = 0.5;
-                    } else {  // Front/Back faces
-                        faceLight = 0.8;
-                        tileUV = vec2(vPosition.x, vPosition.y);
-                    }
-
-                    // Apply tiling and offset
-                    vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
-
-                    blockLighting = vec4(faceLight * vec3(1.0), 1.0);
-                    blockLighting.rgb *= vLighting;
-
-                    gl_FragColor = texture2D(baseTexture, texCoord) * blockLighting;
-                }
-            `,
-            uniforms: {
-                baseTexture: { type: 't', value: TextureManager.terrain },
-            },
-            transparent,
-            wireframe: world.wireframe,
-        })
-
-        const surfacemesh = new Mesh(geometry, material)
-        surfacemesh.position.set(
-            chunk.chunkX * chunk.chunkSize,
-            0,
-            chunk.chunkY * chunk.chunkSize
-        )
-        BlockGame.instance.renderer.sceneManager.add(surfacemesh)
-        this.chunkMeshes.push(surfacemesh)
-
+        console.log(1)
         const result = this.GreedyMesh(
             world,
             chunk,
@@ -182,13 +118,16 @@ class ChunkRenderer {
             }
         }
 
+        // Create gemotry
+        var geometry = new BufferGeometry()
+        geometry.setIndex(indices)
+
         // Convert arrays to TypedArrays
         geometry.setAttribute(
             'position',
             new Float32BufferAttribute(vertices, 3)
         )
 
-        geometry.setIndex(indices)
         geometry.setAttribute(
             'textureOffset',
             new Float32BufferAttribute(textureOffset, 2)
@@ -199,9 +138,43 @@ class ChunkRenderer {
             new Float32BufferAttribute(lighting, 1)
         )
 
+        console.log('Start')
+        console.log(geometry.getAttribute('position'))
+        console.log(geometry.getAttribute('textureOffset'))
+        console.log('End')
+
+        // Attributes passed from InstancedBufferGeometry
+        const texOffset = new NodeAttribute('textureOffset', 'vec2')
+        const tileSize = vec2(0.0625, 0.0625)
+
+        // Procedural UV (make it repeat within 0-1 range)
+        // const tempOffset = fract(vec2(0, 0.9375))
+        const tempOffset = fract(texOffset)
+
+        const tileUV = fract(vec2(positionLocal.x, positionLocal.z))
+        const texCoord = add(tempOffset, mul(tileSize, tileUV))
+        const texSample = texture(TextureManager.terrain, texCoord)
+
+        // Final output material
+        const material = new MeshBasicNodeMaterial({
+            colorNode: texSample,
+            transparent: true,
+            wireframe: world.wireframe,
+        })
+
+        const surfacemesh = new Mesh(geometry, material)
+        surfacemesh.position.set(
+            chunk.chunkX * chunk.chunkSize,
+            0,
+            chunk.chunkY * chunk.chunkSize
+        )
+
         geometry.computeVertexNormals() // Ensures proper shading
         geometry.computeBoundingBox()
         geometry.computeBoundingSphere()
+
+        BlockGame.instance.renderer.sceneManager.add(surfacemesh)
+        this.chunkMeshes.push(surfacemesh)
     }
 
     makeVoxels(l, h, f) {

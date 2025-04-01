@@ -1,4 +1,4 @@
-import { TextureLoader, NearestFilter, RepeatWrapping } from 'three'
+import { TextureLoader, NearestFilter } from 'three/webgpu'
 
 class TextureManager {
     static {

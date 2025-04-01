@@ -27,7 +27,6 @@ class BlockGame {
         this.gameManager = new GameManager()
 
         this.loop = this.loop.bind(this)
-        this.loop()
     }
     loop() {
         requestAnimationFrame(this.loop)
