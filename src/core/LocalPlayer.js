@@ -197,6 +197,7 @@ class LocalPlayer {
         const dir = new Vector3()
         camera.getWorldDirection(dir)
 
+        // Perform a ray cast
         let lastBlock
         let currentBlock
         let previousBlock
@@ -212,6 +213,7 @@ class LocalPlayer {
             previousBlock = [x, y, z]
         })
 
+        // Detect hit object
         if (mouse.LeftClick) {
             mouse.LeftClick = false
 
@@ -223,6 +225,7 @@ class LocalPlayer {
             )
         }
 
+        // Detect right click object
         if (mouse.RightClick) {
             mouse.RightClick = false
 
@@ -243,6 +246,7 @@ class LocalPlayer {
             )
         }
 
+        // Change the keys
         const keys = BlockGame.instance.input.keys
         if (keys.KeyC) {
             keys.KeyC = false
