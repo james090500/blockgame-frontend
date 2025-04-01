@@ -138,18 +138,13 @@ class ChunkRenderer {
             new Float32BufferAttribute(lighting, 1)
         )
 
-        console.log('Start')
-        console.log(geometry.getAttribute('position'))
-        console.log(geometry.getAttribute('textureOffset'))
-        console.log('End')
-
         // Attributes passed from InstancedBufferGeometry
         const texOffset = new NodeAttribute('textureOffset', 'vec2')
         const tileSize = vec2(0.0625, 0.0625)
 
         // Procedural UV (make it repeat within 0-1 range)
-        // const tempOffset = fract(vec2(0, 0.9375))
-        const tempOffset = fract(texOffset)
+        const tempOffset = fract(vec2(0, 0.9375))
+        // const tempOffset = fract(texOffset)
 
         const tileUV = fract(vec2(positionLocal.x, positionLocal.z))
         const texCoord = add(tempOffset, mul(tileSize, tileUV))
