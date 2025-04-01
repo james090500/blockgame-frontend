@@ -5,6 +5,7 @@ import BlockGame from '../BlockGame.js'
 import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
 
 class World {
+    wireframe = false
     lastPlayerX = null
     lastPlayerZ = null
     chunks = new Map()
@@ -195,6 +196,16 @@ class World {
 
     render(delta) {
         this.loadChunks()
+
+        //Wireframe here tempoarily
+        const keys = BlockGame.instance.input.keys
+        if (keys.KeyP) {
+            keys.KeyP = false
+            this.wireframe = !this.wireframe
+            for (const chunk of this.chunks.values()) {
+                chunk.render(this)
+            }
+        }
     }
 }
 

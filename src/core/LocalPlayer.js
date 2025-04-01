@@ -73,7 +73,7 @@ class LocalPlayer {
      * @param {number} delta - Time since last frame.
      */
     updateMovement(delta) {
-        let moveSpeed = 0.45
+        let moveSpeed = 0.9
 
         // Get necessary references
         const camera = BlockGame.instance.renderer.sceneManager.camera
@@ -92,27 +92,31 @@ class LocalPlayer {
         }
 
         // Dampen movement
-        this.velocity.lerp(new Vector3(0, 0, 0), 15 * delta)
+        this.velocity.multiplyScalar(0.75)
 
         // Apply input movement and apply friction
+        const acceleration = new Vector3()
+
         if (keys.KeyW) {
-            this.velocity.add(dir.clone().multiplyScalar(moveSpeed * delta))
+            acceleration.add(dir)
         }
         if (keys.KeyA) {
-            let sideDir = new Vector3().crossVectors(dir, new Vector3(0, -1, 0))
-            this.velocity.add(sideDir.multiplyScalar(moveSpeed * delta))
+            acceleration.add(
+                new Vector3().crossVectors(dir, new Vector3(0, -1, 0))
+            )
         }
         if (keys.KeyD) {
-            let sideDir = new Vector3().crossVectors(dir, new Vector3(0, 1, 0))
-            this.velocity.add(sideDir.multiplyScalar(moveSpeed * delta))
+            acceleration.add(
+                new Vector3().crossVectors(dir, new Vector3(0, 1, 0))
+            )
         }
         if (keys.KeyS) {
-            this.velocity.add(
-                dir
-                    .clone()
-                    .negate()
-                    .multiplyScalar(moveSpeed * delta)
-            )
+            acceleration.add(dir.clone().negate())
+        }
+
+        if (acceleration.lengthSq() > 0) {
+            acceleration.normalize().multiplyScalar(moveSpeed) // units per second
+            this.velocity.add(acceleration.multiplyScalar(delta)) // scale per frame
         }
 
         // Start jump if grounded and Space is pressed
@@ -199,7 +203,7 @@ class LocalPlayer {
             this.traverseRay(camera.position, dir, 5, (x, y, z) => {
                 const block = world.getBlock(x, y, z)
                 if (block && !(block instanceof WaterBlock)) {
-                    world.setBlock(x, y, z, 0)
+                    world.setBlock(x, y, z, null)
                     return true
                 }
             })

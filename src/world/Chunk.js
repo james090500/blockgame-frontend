@@ -72,6 +72,33 @@ class Chunk {
         return { x, y, z }
     }
 
+    hasBlockAbove(x, y, z) {
+        const start =
+            (y + 1) * this.chunkSize * this.chunkSize + z * this.chunkSize + x
+        const stride = this.chunkSize * this.chunkSize
+
+        for (let i = start; i < this.chunkHeight * stride; i += stride) {
+            if (this.chunkData[i] != null) return true
+        }
+
+        return false
+    }
+
+    blockRecievesShadow(x, y, z) {
+        const start =
+            (y + 1) * this.chunkSize * this.chunkSize + z * this.chunkSize + x
+        const stride = this.chunkSize * this.chunkSize
+
+        //If the block above is not air, then no shadow beneath it
+        if (this.chunkData[start] != null) return false
+
+        for (let i = start; i < this.chunkHeight * stride; i += stride) {
+            if (this.chunkData[i] != null) return true
+        }
+
+        return false
+    }
+
     getBlock(x, y, z) {
         const index = this.getIndex(x, y, z)
         if (index == null) {
