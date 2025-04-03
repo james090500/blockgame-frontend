@@ -1,5 +1,5 @@
 import {
-    ShaderMaterial,
+    MeshStandardMaterial,
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
@@ -75,81 +75,6 @@ class ChunkRenderer {
      */
     generateMesh(world, chunk, data, transparent = false) {
         var geometry = new BufferGeometry()
-        var material = new ShaderMaterial({
-            vertexShader: `
-                attribute vec2 textureOffset;
-                attribute float lighting;
-
-                varying vec2 vUv;
-                varying vec3 vNormal;
-                varying vec3 vPosition;
-                varying vec2 vTexOffset;
-                varying float vLighting;
-
-                void main() {
-                    vUv = uv;
-                    vNormal = normalize(normal);
-                    vPosition = position;
-                    vTexOffset = textureOffset;
-                    vLighting = lighting;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform sampler2D baseTexture;
-                uniform vec2 tileOffset;
-                uniform vec2 tileSize;
-
-                varying vec2 vUv;
-                varying vec3 vNormal;
-                varying vec3 vPosition;
-                varying vec2 vTexOffset;
-                varying float vLighting;
-
-                void main() {
-                    vec4 blockLighting;
-                    float faceLight = 1.0;
-                    vec2 tileSize = vec2(0.0625, 0.0625);
-                    vec2 tileUV;
-
-                    // Determine correct UV projection based on face normal
-                    if (abs(vNormal.x) > 0.5) {  // Left/Right faces
-                        faceLight = 0.8;
-                        tileUV = vec2(vPosition.z, vPosition.y);
-                    } else if (vNormal.y > 0.5) {  // Top Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
-                    } else if (vNormal.y < -0.5) {  // Bottom Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
-                        faceLight = 0.5;
-                    } else {  // Front/Back faces
-                        faceLight = 0.8;
-                        tileUV = vec2(vPosition.x, vPosition.y);
-                    }
-
-                    // Apply tiling and offset
-                    vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
-
-                    blockLighting = vec4(faceLight * vec3(1.0), 1.0);
-                    blockLighting.rgb *= vLighting;
-
-                    gl_FragColor = texture2D(baseTexture, texCoord) * blockLighting;
-                }
-            `,
-            uniforms: {
-                baseTexture: { type: 't', value: TextureManager.terrain },
-            },
-            transparent,
-            wireframe: world.wireframe,
-        })
-
-        const surfacemesh = new Mesh(geometry, material)
-        surfacemesh.position.set(
-            chunk.chunkX * chunk.chunkSize,
-            0,
-            chunk.chunkY * chunk.chunkSize
-        )
-        BlockGame.instance.renderer.sceneManager.add(surfacemesh)
-        this.chunkMeshes.push(surfacemesh)
 
         const result = this.GreedyMesh(
             world,
@@ -182,6 +107,14 @@ class ChunkRenderer {
             }
         }
 
+        // Generate base UVs (0,0 to 1,1) for each face
+        const baseUVs = []
+        for (let i = 0; i < indices.length / 6; i++) {
+            // Each face is two triangles (6 indices), 4 unique vertices
+            baseUVs.push(0, 0, 1, 0, 1, 1, 0, 1)
+        }
+        geometry.setAttribute('uv', new Float32BufferAttribute(baseUVs, 2))
+
         // Convert arrays to TypedArrays
         geometry.setAttribute(
             'position',
@@ -194,14 +127,44 @@ class ChunkRenderer {
             new Float32BufferAttribute(textureOffset, 2)
         )
 
-        geometry.setAttribute(
-            'lighting',
-            new Float32BufferAttribute(lighting, 1)
-        )
+        const uvAttr = geometry.attributes.uv
+        const texOffsetAttr = geometry.attributes.textureOffset
+        const uv = []
+        for (let i = 0; i < uvAttr.count; i++) {
+            const u = uvAttr.getX(i)
+            const v = uvAttr.getY(i)
+            const offsetX = texOffsetAttr.getX(i)
+            const offsetY = texOffsetAttr.getY(i)
+            const tileSize = 1 / 16
+
+            uv.push(offsetX + u * tileSize, offsetY + v * tileSize)
+        }
+
+        geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
+
+        // geometry.setAttribute(
+        //     'lighting',
+        //     new Float32BufferAttribute(lighting, 1)
+        // )
 
         geometry.computeVertexNormals() // Ensures proper shading
         geometry.computeBoundingBox()
         geometry.computeBoundingSphere()
+
+        const material = new MeshStandardMaterial({
+            map: TextureManager.terrain,
+            transparent: true,
+            wireframe: world.wireframe,
+        })
+
+        const surfacemesh = new Mesh(geometry, material)
+        surfacemesh.position.set(
+            chunk.chunkX * chunk.chunkSize,
+            0,
+            chunk.chunkY * chunk.chunkSize
+        )
+        BlockGame.instance.renderer.sceneManager.add(surfacemesh)
+        this.chunkMeshes.push(surfacemesh)
     }
 
     makeVoxels(l, h, f) {
