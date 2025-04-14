@@ -23,10 +23,9 @@ class ChunkRenderer {
             function (x, y, z) {
                 const block = chunk.getBlock(x, y, z)
                 if (block != null && !block.transparent) {
-                    const hasBlockAbove = chunk.blockRecievesShadow(x, y, z)
-                    return [block.id, hasBlockAbove ? 0.5 : 1]
+                    return block.id
                 } else {
-                    return [0, 0]
+                    return 0
                 }
             }
         )
@@ -46,10 +45,9 @@ class ChunkRenderer {
             function (x, y, z) {
                 const block = chunk.getBlock(x, y, z)
                 if (block != null && block.transparent) {
-                    const hasBlockAbove = chunk.blockRecievesShadow(x, y, z)
-                    return [block.id, hasBlockAbove ? 0.5 : 1]
+                    return block.id
                 } else {
-                    return [0, 0]
+                    return 0
                 }
             }
         )
@@ -78,36 +76,30 @@ class ChunkRenderer {
         var material = new ShaderMaterial({
             vertexShader: `
                 attribute vec2 textureOffset;
-                attribute float lighting;
 
                 varying vec2 vUv;
                 varying vec3 vNormal;
                 varying vec3 vPosition;
                 varying vec2 vTexOffset;
-                varying float vLighting;
 
                 void main() {
                     vUv = uv;
                     vNormal = normalize(normal);
                     vPosition = position;
                     vTexOffset = textureOffset;
-                    vLighting = lighting;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }
             `,
             fragmentShader: `
                 uniform sampler2D baseTexture;
                 uniform vec2 tileOffset;
-                uniform vec2 tileSize;
 
                 varying vec2 vUv;
                 varying vec3 vNormal;
                 varying vec3 vPosition;
                 varying vec2 vTexOffset;
-                varying float vLighting;
 
                 void main() {
-                    vec4 blockLighting;
                     float faceLight = 1.0;
                     vec2 tileSize = vec2(0.0625, 0.0625);
                     vec2 tileUV;
@@ -115,24 +107,22 @@ class ChunkRenderer {
                     // Determine correct UV projection based on face normal
                     if (abs(vNormal.x) > 0.5) {  // Left/Right faces
                         faceLight = 0.8;
-                        tileUV = vec2(vPosition.z, vPosition.y);
+                        tileUV = vPosition.zy;
                     } else if (vNormal.y > 0.5) {  // Top Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
+                        tileUV = vPosition.xz;
                     } else if (vNormal.y < -0.5) {  // Bottom Face
-                        tileUV = vec2(vPosition.x, vPosition.z);
+                        tileUV = vPosition.xz;
                         faceLight = 0.5;
                     } else {  // Front/Back faces
                         faceLight = 0.8;
-                        tileUV = vec2(vPosition.x, vPosition.y);
+                        tileUV = vPosition.xy;
                     }
 
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
+                    vec4 texel = texture2D(baseTexture, texCoord);
 
-                    blockLighting = vec4(faceLight * vec3(1.0), 1.0);
-                    blockLighting.rgb *= vLighting;
-
-                    gl_FragColor = texture2D(baseTexture, texCoord) * blockLighting;
+                    gl_FragColor = vec4(texel.rgb * faceLight, texel.a);
                 }
             `,
             uniforms: {
@@ -151,18 +141,11 @@ class ChunkRenderer {
         BlockGame.instance.renderer.sceneManager.add(surfacemesh)
         this.chunkMeshes.push(surfacemesh)
 
-        const result = this.GreedyMesh(
-            world,
-            chunk,
-            data.voxels,
-            data.lighting,
-            data.dims
-        )
+        const result = this.GreedyMesh(world, chunk, data.voxels, data.dims)
 
         const vertices = []
         const indices = []
         const textureOffset = []
-        const lighting = []
 
         for (let i = 0; i < result.vertices.length; ++i) {
             const q = result.vertices[i]
@@ -172,12 +155,11 @@ class ChunkRenderer {
         for (let i = 0; i < result.faces.length; ++i) {
             const q = result.faces[i]
 
-            if (q.length === 6) {
+            if (q.length === 5) {
                 indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                 for (let j = 0; j < 4; j++) {
                     textureOffset.push(q[4][0], q[4][1])
-                    lighting.push(q[5])
                 }
             }
         }
@@ -194,11 +176,6 @@ class ChunkRenderer {
             new Float32BufferAttribute(textureOffset, 2)
         )
 
-        geometry.setAttribute(
-            'lighting',
-            new Float32BufferAttribute(lighting, 1)
-        )
-
         geometry.computeVertexNormals() // Ensures proper shading
         geometry.computeBoundingBox()
         geometry.computeBoundingSphere()
@@ -207,226 +184,194 @@ class ChunkRenderer {
     makeVoxels(l, h, f) {
         var dims = [h[0] - l[0], h[1] - l[1], h[2] - l[2]],
             voxels = new Int32Array(dims[0] * dims[1] * dims[2]),
-            lighting = new Float32Array(dims[0] * dims[1] * dims[2]),
             n = 0
         for (var k = l[2]; k < h[2]; ++k)
             for (var j = l[1]; j < h[1]; ++j)
                 for (var i = l[0]; i < h[0]; ++i, ++n) {
                     let result = f(i, j, k)
-                    voxels[n] = result[0]
-                    lighting[n] = result[1]
+                    voxels[n] = result
                 }
-        return { voxels, lighting, dims }
+        return { voxels, dims }
     }
 
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
-    GreedyMesh(world, chunk, volume, lighting, dims) {
-        var mask = new Int32Array(1)
-        var lMask = new Float32Array(1)
-
-        function f(i, j, k) {
-            return volume[i + dims[0] * (j + dims[1] * k)]
+    GreedyMesh(world, chunk, voxelData, dimensions) {
+        let mask = new Int32Array(1)
+        // Helper to get block ID at a voxel coordinate
+        function getVoxel(x, y, z) {
+            return voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
         }
 
-        function getLighting(i, j, k) {
-            return lighting[i + dims[0] * (j + dims[1] * k)]
-        }
+        const vertices = []
+        const faces = []
 
-        //Sweep over 3-axes
-        var vertices = [],
-            faces = []
-        for (var d = 0; d < 3; ++d) {
-            var i,
-                j,
-                k,
-                l,
-                w,
-                h,
-                u = (d + 1) % 3,
-                v = (d + 2) % 3,
-                x = [0, 0, 0],
-                q = [0, 0, 0]
-            if (mask.length < dims[u] * dims[v]) {
-                mask = new Int32Array(dims[u] * dims[v])
-                lMask = new Float32Array(dims[u] * dims[v])
+        // Sweep across 3 dimensions: X, Y, Z (0, 1, 2)
+        for (let axis = 0; axis < 3; ++axis) {
+            const u = (axis + 1) % 3
+            const v = (axis + 2) % 3
+            const pos = [0, 0, 0]
+            const step = [0, 0, 0]
+            step[axis] = 1
+
+            if (mask.length < dimensions[u] * dimensions[v]) {
+                mask = new Int32Array(dimensions[u] * dimensions[v])
             }
-            q[d] = 1
-            for (x[d] = -1; x[d] < dims[d]; ) {
-                //Compute mask
-                var n = 0
-                for (x[v] = 0; x[v] < dims[v]; ++x[v])
-                    for (x[u] = 0; x[u] < dims[u]; ++x[u], ++n) {
-                        var currentId = 0 <= x[d] ? f(x[0], x[1], x[2]) : 0,
-                            nextId =
-                                x[d] < dims[d] - 1
-                                    ? f(x[0] + q[0], x[1] + q[1], x[2] + q[2])
-                                    : 0
 
-                        var currentLighting =
-                                0 <= x[d] ? getLighting(x[0], x[1], x[2]) : 0,
-                            nextLighting =
-                                x[d] < dims[d] - 1
-                                    ? getLighting(
-                                          x[0] + q[0],
-                                          x[1] + q[1],
-                                          x[2] + q[2]
-                                      )
-                                    : 0
+            for (pos[axis] = -1; pos[axis] < dimensions[axis]; ) {
+                let n = 0
 
-                        // todo, calculate if block next to mask is solid
-                        if (!!currentId === !!nextId) {
+                // Build the mask
+                for (pos[v] = 0; pos[v] < dimensions[v]; ++pos[v]) {
+                    for (pos[u] = 0; pos[u] < dimensions[u]; ++pos[u], ++n) {
+                        const currID = pos[axis] >= 0 ? getVoxel(...pos) : 0
+                        const nextPos = [
+                            pos[0] + step[0],
+                            pos[1] + step[1],
+                            pos[2] + step[2],
+                        ]
+                        const nextID =
+                            pos[axis] < dimensions[axis] - 1
+                                ? getVoxel(...nextPos)
+                                : 0
+
+                        if (!!currID === !!nextID) {
                             mask[n] = 0
-                            lMask[n] = 0
                         } else {
-                            const getBlockMaskValue = (
-                                blockId,
-                                xOffset = 0,
-                                yOffset = 0,
-                                zOffset = 0
+                            const getMaskValue = (
+                                id,
+                                dx = 0,
+                                dy = 0,
+                                dz = 0
                             ) => {
-                                const currentBlock = Blocks.ids[blockId]
-                                const nextBlock = world.getChunkBlock(
+                                const blockA = Blocks.ids[id]
+                                const neighbor = world.getChunkBlock(
                                     chunk.chunkX,
                                     chunk.chunkY,
-                                    x[0] + xOffset,
-                                    x[1] + yOffset,
-                                    x[2] + zOffset
+                                    pos[0] + dx,
+                                    pos[1] + dy,
+                                    pos[2] + dz
                                 )
-
-                                return nextBlock &&
-                                    (!nextBlock.transparent ||
-                                        currentBlock.transparent)
+                                return neighbor &&
+                                    (!neighbor.transparent ||
+                                        blockA.transparent)
                                     ? 0
-                                    : blockId
+                                    : id
                             }
 
-                            if (currentId) {
-                                mask[n] = getBlockMaskValue(
-                                    currentId,
-                                    q[0],
-                                    q[1],
-                                    q[2]
-                                )
-                                lMask[n] = currentLighting
+                            if (currID) {
+                                mask[n] = getMaskValue(currID, ...step)
                             } else {
-                                mask[n] = -getBlockMaskValue(nextId)
-                                lMask[n] = nextLighting
+                                mask[n] = -getMaskValue(nextID)
                             }
                         }
                     }
-                //Increment x[d]
-                ++x[d]
-                //Generate mesh for mask using lexicographic ordering
+                }
+
+                ++pos[axis]
+
+                // Generate quads
                 n = 0
-                for (j = 0; j < dims[v]; ++j)
-                    for (i = 0; i < dims[u]; ) {
-                        var c = mask[n]
-                        var blockLight = lMask[n]
-                        if (!!c) {
-                            //Compute width
-                            for (
-                                w = 1;
-                                c === mask[n + w] &&
-                                i + w < dims[u] &&
-                                blockLight === lMask[n + w] &&
-                                i + w < dims[u];
-                                ++w
-                            ) {}
-                            //Compute height (this is slightly awkward
-                            var done = false
-                            for (h = 1; j + h < dims[v]; ++h) {
-                                for (k = 0; k < w; ++k) {
+                for (let j = 0; j < dimensions[v]; ++j) {
+                    for (let i = 0; i < dimensions[u]; ) {
+                        let val = mask[n]
+                        if (val !== 0) {
+                            // Calculate quad width
+                            let width = 1
+                            while (
+                                i + width < dimensions[u] &&
+                                val === mask[n + width]
+                            ) {
+                                ++width
+                            }
+
+                            // Calculate quad height
+                            let height = 1
+                            let stop = false
+                            while (j + height < dimensions[v]) {
+                                for (let k = 0; k < width; ++k) {
                                     if (
-                                        c !== mask[n + k + h * dims[u]] ||
-                                        blockLight !==
-                                            lMask[n + k + h * dims[u]]
+                                        val !==
+                                        mask[n + k + height * dimensions[u]]
                                     ) {
-                                        done = true
+                                        stop = true
                                         break
                                     }
                                 }
-                                if (done) {
-                                    break
-                                }
+                                if (stop) break
+                                ++height
                             }
-                            //Add quad
-                            x[u] = i
-                            x[v] = j
-                            var du = [0, 0, 0],
-                                dv = [0, 0, 0]
-                            if (c > 0) {
-                                dv[v] = h
-                                du[u] = w
+
+                            // Construct quad
+                            pos[u] = i
+                            pos[v] = j
+                            const du = [0, 0, 0]
+                            const dv = [0, 0, 0]
+
+                            if (val > 0) {
+                                du[u] = width
+                                dv[v] = height
                             } else {
-                                c = -c
-                                du[v] = h
-                                dv[u] = w
+                                val = -val
+                                dv[u] = width
+                                du[v] = height
                             }
-                            var vertex_count = vertices.length
-                            vertices.push([x[0], x[1], x[2]])
+
+                            const vCount = vertices.length
+                            vertices.push([pos[0], pos[1], pos[2]])
                             vertices.push([
-                                x[0] + du[0],
-                                x[1] + du[1],
-                                x[2] + du[2],
+                                pos[0] + du[0],
+                                pos[1] + du[1],
+                                pos[2] + du[2],
                             ])
                             vertices.push([
-                                x[0] + du[0] + dv[0],
-                                x[1] + du[1] + dv[1],
-                                x[2] + du[2] + dv[2],
+                                pos[0] + du[0] + dv[0],
+                                pos[1] + du[1] + dv[1],
+                                pos[2] + du[2] + dv[2],
                             ])
                             vertices.push([
-                                x[0] + dv[0],
-                                x[1] + dv[1],
-                                x[2] + dv[2],
+                                pos[0] + dv[0],
+                                pos[1] + dv[1],
+                                pos[2] + dv[2],
                             ])
 
-                            const currentBlock = world.getChunkBlock(
-                                chunk.chunkX,
-                                chunk.chunkY,
-                                x[0],
-                                x[1],
-                                x[2]
-                            )
-                            const block = Blocks.ids[c]
-                            let textureOffset = block.textureOffset()
-                            //TOP
-                            if (du[1] == 0 && dv[1] == 0) {
-                                if (
-                                    currentBlock == null ||
-                                    currentBlock.transparent
-                                ) {
-                                    textureOffset = block.textureOffset('top')
-                                } else {
-                                    textureOffset =
-                                        block.textureOffset('bottom')
-                                }
+                            const block = Blocks.ids[val]
+                            let texOffset = block.textureOffset()
+
+                            // Determine if face is top or bottom when sweeping the Y axis
+                            if (axis === 1) {
+                                const isTopFace = mask[n] > 0 // Face points in -Y direction
+                                texOffset = block.textureOffset(
+                                    isTopFace ? 'top' : 'bottom'
+                                )
                             }
 
                             faces.push([
-                                vertex_count,
-                                vertex_count + 1,
-                                vertex_count + 2,
-                                vertex_count + 3,
-                                textureOffset,
-                                blockLight,
+                                vCount,
+                                vCount + 1,
+                                vCount + 2,
+                                vCount + 3,
+                                texOffset,
                             ])
 
-                            //Zero-out mask
-                            for (l = 0; l < h; ++l)
-                                for (k = 0; k < w; ++k) {
-                                    mask[n + k + l * dims[u]] = 0
+                            // Zero the mask
+                            for (let dy = 0; dy < height; ++dy) {
+                                for (let dx = 0; dx < width; ++dx) {
+                                    mask[n + dx + dy * dimensions[u]] = 0
                                 }
-                            //Increment counters and continue
-                            i += w
-                            n += w
+                            }
+
+                            i += width
+                            n += width
                         } else {
                             ++i
                             ++n
                         }
                     }
+                }
             }
         }
-        return { vertices: vertices, faces: faces }
+
+        return { vertices, faces }
     }
 }
 
