@@ -121,26 +121,18 @@ class ChunkRenderer {
             new Float32BufferAttribute(vertices, 3)
         )
 
+        geometry.setAttribute(
+            'localPosition',
+            new Float32BufferAttribute(vertices, 3)
+        )
+
         geometry.setIndex(indices)
         geometry.setAttribute(
             'textureOffset',
             new Float32BufferAttribute(textureOffset, 2)
         )
 
-        const uvAttr = geometry.attributes.uv
-        const texOffsetAttr = geometry.attributes.textureOffset
-        const uv = []
-        for (let i = 0; i < uvAttr.count; i++) {
-            const u = uvAttr.getX(i)
-            const v = uvAttr.getY(i)
-            const offsetX = texOffsetAttr.getX(i)
-            const offsetY = texOffsetAttr.getY(i)
-            const tileSize = 1 / 16
-
-            uv.push(offsetX + u * tileSize, offsetY + v * tileSize)
-        }
-
-        geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
+        // geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
 
         // geometry.setAttribute(
         //     'lighting',
@@ -156,6 +148,68 @@ class ChunkRenderer {
             transparent: true,
             wireframe: world.wireframe,
         })
+
+        material.onBeforeCompile = (shader) => {
+            // Inject custom varyings
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <common>',
+                `
+                #include <common>
+                attribute vec3 localPosition;
+                attribute vec2 textureOffset;
+                varying vec2 vUv;
+                varying vec2 vTexOffset;
+                varying vec3 vLocalPos;
+                `
+            )
+
+            // Inject your varying
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <uv_vertex>',
+                `
+                    #include <uv_vertex>
+                    vUv = uv;
+                    vLocalPos = position - localPosition;
+                    vTexOffset = textureOffset;
+                `
+            )
+
+            // Use our custom UV in fragment shader
+            shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <common>',
+                `
+                #include <common>
+                varying vec2 vUv;
+                varying vec3 vLocalPos;
+                varying vec2 vTexOffset;
+
+                vec2 tileSize = vec2(0.0625, 0.0625);
+                vec2 tileUV;
+                `
+            )
+
+            // Inject the fragment logic
+            shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <map_fragment>',
+                `
+                    // Determine correct UV projection based on face normal
+                    if (abs(vNormal.x) > 0.5) {  // Left/Right faces
+                        tileUV = vLocalPos.xy;
+                    } else if (vNormal.y > 0.5) {  // Top Face
+                        tileUV = vLocalPos.xz;
+                    } else if (vNormal.y < -0.5) {  // Bottom Face
+                        tileUV = vLocalPos.xz;
+                    } else {  // Front/Back faces
+                        tileUV = vLocalPos.xy;
+                    }
+
+                    vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
+                    vec4 texelColor = texture2D(map, texCoord);
+
+                    diffuseColor *= texelColor;
+              `
+            )
+        }
 
         const surfacemesh = new Mesh(geometry, material)
         surfacemesh.position.set(
