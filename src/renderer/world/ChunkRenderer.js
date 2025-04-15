@@ -76,17 +76,20 @@ class ChunkRenderer {
         var material = new ShaderMaterial({
             vertexShader: `
                 attribute vec2 textureOffset;
+                attribute float ao;
 
                 varying vec2 vUv;
                 varying vec3 vNormal;
                 varying vec3 vPosition;
                 varying vec2 vTexOffset;
+                varying float vAo;
 
                 void main() {
                     vUv = uv;
                     vNormal = normalize(normal);
                     vPosition = position;
                     vTexOffset = textureOffset;
+                    vAo = ao;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }
             `,
@@ -98,6 +101,7 @@ class ChunkRenderer {
                 varying vec3 vNormal;
                 varying vec3 vPosition;
                 varying vec2 vTexOffset;
+                varying float vAo;
 
                 void main() {
                     float faceLight = 1.0;
@@ -121,8 +125,9 @@ class ChunkRenderer {
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
                     vec4 texel = texture2D(baseTexture, texCoord);
+                    float finalAO = mix(0.5, 1.0, vAo);
 
-                    gl_FragColor = vec4(texel.rgb * faceLight, texel.a);
+                    gl_FragColor = vec4(texel.rgb * finalAO * faceLight, texel.a);
                 }
             `,
             uniforms: {
@@ -146,6 +151,7 @@ class ChunkRenderer {
         const vertices = []
         const indices = []
         const textureOffset = []
+        const ao = []
 
         for (let i = 0; i < result.vertices.length; ++i) {
             const q = result.vertices[i]
@@ -155,11 +161,12 @@ class ChunkRenderer {
         for (let i = 0; i < result.faces.length; ++i) {
             const q = result.faces[i]
 
-            if (q.length === 5) {
+            if (q.length === 6) {
                 indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                 for (let j = 0; j < 4; j++) {
                     textureOffset.push(q[4][0], q[4][1])
+                    ao.push(q[5][j])
                 }
             }
         }
@@ -175,6 +182,8 @@ class ChunkRenderer {
             'textureOffset',
             new Float32BufferAttribute(textureOffset, 2)
         )
+
+        geometry.setAttribute('ao', new Float32BufferAttribute(ao, 1))
 
         geometry.computeVertexNormals() // Ensures proper shading
         geometry.computeBoundingBox()
@@ -197,9 +206,74 @@ class ChunkRenderer {
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
     GreedyMesh(world, chunk, voxelData, dimensions) {
         let mask = new Int32Array(1)
+        let aoMask = new Array()
+
         // Helper to get block ID at a voxel coordinate
         function getVoxel(x, y, z) {
             return voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
+        }
+
+        function getAo(x, y, z, axis, direction) {
+            const u = (axis + 1) % 3
+            const v = (axis + 2) % 3
+
+            // Offsets for direction the face is pointing
+            const d = [0, 0, 0]
+            d[axis] = direction ? 1 : -1
+
+            // Offsets for the 3 AO neighbors
+            const side1 = [0, 0, 0]
+            const side2 = [0, 0, 0]
+            const corner = [0, 0, 0]
+
+            side1[u] = 1
+            side2[v] = 1
+            corner[u] = 1
+            corner[v] = 1
+
+            // Shift all by direction to align with face
+            for (let i = 0; i < 3; i++) {
+                side1[i] += d[i]
+                side2[i] += d[i]
+                corner[i] += d[i]
+            }
+
+            const isSolid = (x, y, z) => {
+                const id =
+                    voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
+                const block = Blocks.ids[id]
+                return block && !block.transparent
+            }
+
+            const s1 = isSolid(x + side1[0], y + side1[1], z + side1[2]) ? 1 : 0
+            const s2 = isSolid(x + side2[0], y + side2[1], z + side2[2]) ? 1 : 0
+            const c = isSolid(x + corner[0], y + corner[1], z + corner[2])
+                ? 1
+                : 0
+
+            // Remap 1–4 AO to 0–3 range
+            return s1 && s2 ? 0 : 3 - (s1 + s2 + c)
+        }
+
+        function aoKey(x, y, z, axis, direction) {
+            const u = (axis + 1) % 3
+            const v = (axis + 2) % 3
+
+            const offsets = [
+                [0, 0],
+                [1, 0],
+                [1, 1],
+                [0, 1],
+            ]
+
+            return offsets
+                .map(([du, dv]) => {
+                    const px = x + (u === 0 ? du : v === 0 ? dv : 0)
+                    const py = y + (u === 1 ? du : v === 1 ? dv : 0)
+                    const pz = z + (u === 2 ? du : v === 2 ? dv : 0)
+                    return getAo(px, py, pz, axis, direction)
+                })
+                .join(',')
         }
 
         const vertices = []
@@ -258,10 +332,25 @@ class ChunkRenderer {
                                     : id
                             }
 
+                            // Generate an AO for the block, the value will be a bitwise total uniquie to the AO pattern
                             if (currID) {
                                 mask[n] = getMaskValue(currID, ...step)
+                                aoMask[n] = aoKey(
+                                    pos[0],
+                                    pos[1],
+                                    pos[2],
+                                    axis,
+                                    true
+                                )
                             } else {
                                 mask[n] = -getMaskValue(nextID)
+                                aoMask[n] = aoKey(
+                                    pos[0],
+                                    pos[1],
+                                    pos[2],
+                                    axis,
+                                    false
+                                )
                             }
                         }
                     }
@@ -273,13 +362,15 @@ class ChunkRenderer {
                 n = 0
                 for (let j = 0; j < dimensions[v]; ++j) {
                     for (let i = 0; i < dimensions[u]; ) {
-                        let val = mask[n]
-                        if (val !== 0) {
+                        let blockId = mask[n]
+                        let aoVal = aoMask[n]
+                        if (blockId !== 0) {
                             // Calculate quad width
                             let width = 1
                             while (
                                 i + width < dimensions[u] &&
-                                val === mask[n + width]
+                                blockId === mask[n + width] &&
+                                aoVal === aoMask[n + width]
                             ) {
                                 ++width
                             }
@@ -290,8 +381,14 @@ class ChunkRenderer {
                             while (j + height < dimensions[v]) {
                                 for (let k = 0; k < width; ++k) {
                                     if (
-                                        val !==
-                                        mask[n + k + height * dimensions[u]]
+                                        blockId !==
+                                            mask[
+                                                n + k + height * dimensions[u]
+                                            ] ||
+                                        aoVal !==
+                                            aoMask[
+                                                n + k + height * dimensions[u]
+                                            ]
                                     ) {
                                         stop = true
                                         break
@@ -307,11 +404,11 @@ class ChunkRenderer {
                             const du = [0, 0, 0]
                             const dv = [0, 0, 0]
 
-                            if (val > 0) {
+                            if (blockId > 0) {
                                 du[u] = width
                                 dv[v] = height
                             } else {
-                                val = -val
+                                blockId = -blockId
                                 dv[u] = width
                                 du[v] = height
                             }
@@ -334,16 +431,22 @@ class ChunkRenderer {
                                 pos[2] + dv[2],
                             ])
 
-                            const block = Blocks.ids[val]
+                            const block = Blocks.ids[blockId]
                             let texOffset = block.textureOffset()
 
                             // Determine if face is top or bottom when sweeping the Y axis
+                            const isPositiveFace = mask[n] > 0
                             if (axis === 1) {
-                                const isTopFace = mask[n] > 0 // Face points in -Y direction
                                 texOffset = block.textureOffset(
-                                    isTopFace ? 'top' : 'bottom'
+                                    isPositiveFace ? 'top' : 'bottom'
                                 )
                             }
+
+                            // Here we need to calculate the AO for each vertex
+                            // We should just reverse the bitwise operation.
+                            // We already theoretically have the AO value for the face
+                            // but we need to check direction/axis/face
+                            const aoValues = [1, 1, 1, 1]
 
                             faces.push([
                                 vCount,
@@ -351,6 +454,7 @@ class ChunkRenderer {
                                 vCount + 2,
                                 vCount + 3,
                                 texOffset,
+                                aoValues,
                             ])
 
                             // Zero the mask
