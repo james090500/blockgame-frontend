@@ -125,9 +125,10 @@ class ChunkRenderer {
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
                     vec4 texel = texture2D(baseTexture, texCoord);
-                    float finalAO = mix(0.5, 1.0, vAo);
+                    float finalAO = mix(0.0, 1.0, vAo);
 
-                    gl_FragColor = vec4(texel.rgb * finalAO * faceLight, texel.a);
+                    //gl_FragColor = vec4(texel.rgb * finalAO * faceLight, texel.a);
+                    gl_FragColor = vec4(vec3(1.0,1.0,1.0) * finalAO * faceLight, texel.a);
                 }
             `,
             uniforms: {
@@ -206,74 +207,34 @@ class ChunkRenderer {
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
     GreedyMesh(world, chunk, voxelData, dimensions) {
         let mask = new Int32Array(1)
-        let aoMask = new Array()
+        let aoMask = new Int32Array()
 
         // Helper to get block ID at a voxel coordinate
         function getVoxel(x, y, z) {
             return voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
         }
 
-        function getAo(x, y, z, axis, direction) {
-            const u = (axis + 1) % 3
-            const v = (axis + 2) % 3
-
-            // Offsets for direction the face is pointing
-            const d = [0, 0, 0]
-            d[axis] = direction ? 1 : -1
-
-            // Offsets for the 3 AO neighbors
-            const side1 = [0, 0, 0]
-            const side2 = [0, 0, 0]
-            const corner = [0, 0, 0]
-
-            side1[u] = 1
-            side2[v] = 1
-            corner[u] = 1
-            corner[v] = 1
-
-            // Shift all by direction to align with face
-            for (let i = 0; i < 3; i++) {
-                side1[i] += d[i]
-                side2[i] += d[i]
-                corner[i] += d[i]
-            }
-
-            const isSolid = (x, y, z) => {
-                const id =
-                    voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
-                const block = Blocks.ids[id]
-                return block && !block.transparent
-            }
-
-            const s1 = isSolid(x + side1[0], y + side1[1], z + side1[2]) ? 1 : 0
-            const s2 = isSolid(x + side2[0], y + side2[1], z + side2[2]) ? 1 : 0
-            const c = isSolid(x + corner[0], y + corner[1], z + corner[2])
-                ? 1
-                : 0
-
-            // Remap 1–4 AO to 0–3 range
-            return s1 && s2 ? 0 : 3 - (s1 + s2 + c)
-        }
-
-        function aoKey(x, y, z, axis, direction) {
-            const u = (axis + 1) % 3
-            const v = (axis + 2) % 3
-
-            const offsets = [
-                [0, 0],
-                [1, 0],
-                [1, 1],
-                [0, 1],
+        function getAo(pos, step) {
+            const nextPos = [
+                pos[0] + step[0],
+                pos[1] + step[1],
+                pos[2] + step[2],
             ]
 
-            return offsets
-                .map(([du, dv]) => {
-                    const px = x + (u === 0 ? du : v === 0 ? dv : 0)
-                    const py = y + (u === 1 ? du : v === 1 ? dv : 0)
-                    const pz = z + (u === 2 ? du : v === 2 ? dv : 0)
-                    return getAo(px, py, pz, axis, direction)
-                })
-                .join(',')
+            const sample = (dx, dy, dz) => {
+                const block = world.getChunkBlock(
+                    chunk.chunkX,
+                    chunk.chunkY,
+                    dx,
+                    dy,
+                    dz
+                )
+                return !block || block.transparent ? 1 : 0
+            }
+
+            const s1 = sample(nextPos[0], nextPos[1], nextPos[2])
+
+            return s1
         }
 
         const vertices = []
@@ -289,6 +250,7 @@ class ChunkRenderer {
 
             if (mask.length < dimensions[u] * dimensions[v]) {
                 mask = new Int32Array(dimensions[u] * dimensions[v])
+                aoMask = new Int32Array(dimensions[u] * dimensions[v])
             }
 
             for (pos[axis] = -1; pos[axis] < dimensions[axis]; ) {
@@ -310,6 +272,7 @@ class ChunkRenderer {
 
                         if (!!currID === !!nextID) {
                             mask[n] = 0
+                            aoMask[n] = 0
                         } else {
                             const getMaskValue = (
                                 id,
@@ -335,22 +298,10 @@ class ChunkRenderer {
                             // Generate an AO for the block, the value will be a bitwise total uniquie to the AO pattern
                             if (currID) {
                                 mask[n] = getMaskValue(currID, ...step)
-                                aoMask[n] = aoKey(
-                                    pos[0],
-                                    pos[1],
-                                    pos[2],
-                                    axis,
-                                    true
-                                )
+                                aoMask[n] = getAo(nextPos, step)
                             } else {
                                 mask[n] = -getMaskValue(nextID)
-                                aoMask[n] = aoKey(
-                                    pos[0],
-                                    pos[1],
-                                    pos[2],
-                                    axis,
-                                    false
-                                )
+                                aoMask[n] = getAo(nextPos, step)
                             }
                         }
                     }
@@ -409,6 +360,7 @@ class ChunkRenderer {
                                 dv[v] = height
                             } else {
                                 blockId = -blockId
+                                aoVal = aoVal
                                 dv[u] = width
                                 du[v] = height
                             }
@@ -446,7 +398,13 @@ class ChunkRenderer {
                             // We should just reverse the bitwise operation.
                             // We already theoretically have the AO value for the face
                             // but we need to check direction/axis/face
-                            const aoValues = [1, 1, 1, 1]
+                            // const aoVals = [
+                            //     (aoVal >> 6) & 3,
+                            //     (aoVal >> 4) & 3,
+                            //     (aoVal >> 2) & 3,
+                            //     aoVal & 3,
+                            // ]
+                            const aoVals = [aoVal, aoVal, aoVal, aoVal]
 
                             faces.push([
                                 vCount,
@@ -454,13 +412,14 @@ class ChunkRenderer {
                                 vCount + 2,
                                 vCount + 3,
                                 texOffset,
-                                aoValues,
+                                aoVals,
                             ])
 
                             // Zero the mask
                             for (let dy = 0; dy < height; ++dy) {
                                 for (let dx = 0; dx < width; ++dx) {
                                     mask[n + dx + dy * dimensions[u]] = 0
+                                    aoMask[n + dx + dy * dimensions[u]] = 0
                                 }
                             }
 
