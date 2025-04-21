@@ -104,31 +104,27 @@ class ChunkRenderer {
                 varying float vAo;
 
                 void main() {
-                    float faceLight = 1.0;
                     vec2 tileSize = vec2(0.0625, 0.0625);
                     vec2 tileUV;
 
                     // Determine correct UV projection based on face normal
                     if (abs(vNormal.x) > 0.5) {  // Left/Right faces
-                        faceLight = 0.8;
                         tileUV = vPosition.zy;
                     } else if (vNormal.y > 0.5) {  // Top Face
                         tileUV = vPosition.xz;
                     } else if (vNormal.y < -0.5) {  // Bottom Face
                         tileUV = vPosition.xz;
-                        faceLight = 0.5;
                     } else {  // Front/Back faces
-                        faceLight = 0.8;
                         tileUV = vPosition.xy;
                     }
 
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
                     vec4 texel = texture2D(baseTexture, texCoord);
-                    float finalAO = mix(0.0, 1.0, vAo);
+                    float finalAO = mix(0.0, 1.0, vAo / 3.0);
 
-                    //gl_FragColor = vec4(texel.rgb * finalAO * faceLight, texel.a);
-                    gl_FragColor = vec4(vec3(1.0,1.0,1.0) * finalAO * faceLight, texel.a);
+                    // gl_FragColor = vec4(texel.rgb * finalAO, texel.a);
+                    gl_FragColor = vec4(vec3(1.0,1.0,1.0) * finalAO, texel.a);
                 }
             `,
             uniforms: {
@@ -207,21 +203,25 @@ class ChunkRenderer {
     //https://mikolalysenko.github.io/MinecraftMeshes2/js/greedy.js
     GreedyMesh(world, chunk, voxelData, dimensions) {
         let mask = new Int32Array(1)
-        let aoMask = new Int32Array()
+        let aoMask = new Int32Array(1)
 
         // Helper to get block ID at a voxel coordinate
         function getVoxel(x, y, z) {
             return voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
         }
 
-        function getAo(pos, step) {
-            const nextPos = [
-                pos[0] + step[0],
-                pos[1] + step[1],
-                pos[2] + step[2],
+        function getAo(currentPos, step, axis) {
+            const aoLevels = []
+            const [x, y, z] = [
+                currentPos[0] - step[0],
+                currentPos[1] - step[1],
+                currentPos[2] - step[2],
             ]
+            // const [x, y, z] = currentPos
+            const otherAxes = [0, 1, 2].filter((i) => i !== axis)
+            const [a1, a2] = otherAxes
 
-            const sample = (dx, dy, dz) => {
+            const getBlock = (dx, dy, dz) => {
                 const block = world.getChunkBlock(
                     chunk.chunkX,
                     chunk.chunkY,
@@ -229,12 +229,52 @@ class ChunkRenderer {
                     dy,
                     dz
                 )
-                return !block || block.transparent ? 1 : 0
+                return block && !block.transparent ? 1 : 0
             }
 
-            const s1 = sample(nextPos[0], nextPos[1], nextPos[2])
+            // Iterate over the 4 corner positions
+            for (let s1 = -1; s1 <= 1; s1 += 2) {
+                for (let s2 = -1; s2 <= 1; s2 += 2) {
+                    const side1 = [...step]
+                    const side2 = [...step]
+                    const corner = [...step]
 
-            return s1
+                    side1[a1] += s1
+                    side2[a2] += s2
+                    corner[a1] += s1
+                    corner[a2] += s2
+
+                    const posSide1 = [x + side1[0], y + side1[1], z + side1[2]]
+                    const posSide2 = [x + side2[0], y + side2[1], z + side2[2]]
+                    const posCorner = [
+                        x + corner[0],
+                        y + corner[1],
+                        z + corner[2],
+                    ]
+
+                    const hasSide1 = getBlock(...posSide1)
+                    const hasSide2 = getBlock(...posSide2)
+                    const hasCorner = getBlock(...posCorner)
+
+                    // Ambient occlusion rule
+                    let ao
+                    if (hasSide1 && hasSide2) {
+                        ao = 0 // fully shadowed
+                    } else {
+                        ao = 3 - hasSide1 + hasSide2 + hasCorner // 0 = dark, 3 = fully lit
+                    }
+
+                    aoLevels.push(ao)
+                }
+            }
+
+            const encoded =
+                ((aoLevels[0] & 0b11) << 0) | // top-left (bits 0-1)
+                ((aoLevels[1] & 0b11) << 2) | // top-right (bits 2-3)
+                ((aoLevels[2] & 0b11) << 4) | // bottom-left (bits 4-5)
+                ((aoLevels[3] & 0b11) << 6) // bottom-right (bits 6-7)
+
+            return encoded
         }
 
         const vertices = []
@@ -291,17 +331,17 @@ class ChunkRenderer {
                                 return neighbor &&
                                     (!neighbor.transparent ||
                                         blockA.transparent)
-                                    ? 0
+                                    ? 2
                                     : id
                             }
 
                             // Generate an AO for the block, the value will be a bitwise total uniquie to the AO pattern
                             if (currID) {
                                 mask[n] = getMaskValue(currID, ...step)
-                                aoMask[n] = getAo(nextPos, step)
+                                aoMask[n] = getAo(nextPos, step, axis)
                             } else {
                                 mask[n] = -getMaskValue(nextID)
-                                aoMask[n] = getAo(nextPos, step)
+                                aoMask[n] = -getAo(nextPos, step, axis)
                             }
                         }
                     }
@@ -360,7 +400,7 @@ class ChunkRenderer {
                                 dv[v] = height
                             } else {
                                 blockId = -blockId
-                                aoVal = aoVal
+                                aoVal = -aoVal
                                 dv[u] = width
                                 du[v] = height
                             }
@@ -394,17 +434,62 @@ class ChunkRenderer {
                                 )
                             }
 
-                            // Here we need to calculate the AO for each vertex
-                            // We should just reverse the bitwise operation.
-                            // We already theoretically have the AO value for the face
-                            // but we need to check direction/axis/face
-                            // const aoVals = [
-                            //     (aoVal >> 6) & 3,
-                            //     (aoVal >> 4) & 3,
-                            //     (aoVal >> 2) & 3,
-                            //     aoVal & 3,
-                            // ]
-                            const aoVals = [aoVal, aoVal, aoVal, aoVal]
+                            let aoVals = [
+                                (aoVal >> 0) & 0b11, // top-left
+                                (aoVal >> 2) & 0b11, // top-right
+                                (aoVal >> 4) & 0b11, // bottom-left
+                                (aoVal >> 6) & 0b11, // bottom-right
+                            ]
+
+                            // Determine face orientation
+
+                            // Fix AO rotation depending on axis
+                            // top left
+                            // top right
+                            // top left
+                            // bottom left
+                            // if (axis === 0) {
+                            //     aoVals = isPositiveFace
+                            //         ? [
+                            //               aoVals[3],
+                            //               aoVals[0],
+                            //               aoVals[2],
+                            //               aoVals[1],
+                            //           ]
+                            //         : [
+                            //               aoVals[1],
+                            //               aoVals[3],
+                            //               aoVals[0],
+                            //               aoVals[2],
+                            //           ]
+                            // } else
+                            if (axis === 1) {
+                                aoVals = isPositiveFace
+                                    ? [
+                                          aoVals[0], // bottom-right
+                                          aoVals[1], // top-right
+                                          aoVals[3], // top-left
+                                          aoVals[2], // bottom-left
+                                      ]
+                                    : [3, 3, 3, 3]
+                            } else {
+                                aoVals = [3, 3, 3, 3]
+                            }
+                            // } else if (axis === 2) {
+                            //     aoVals = isPositiveFace
+                            //         ? [
+                            //               aoVals[0],
+                            //               aoVals[2],
+                            //               aoVals[3],
+                            //               aoVals[1],
+                            //           ]
+                            //         : [
+                            //               aoVals[2],
+                            //               aoVals[3],
+                            //               aoVals[1],
+                            //               aoVals[0],
+                            //           ]
+                            // }
 
                             faces.push([
                                 vCount,
