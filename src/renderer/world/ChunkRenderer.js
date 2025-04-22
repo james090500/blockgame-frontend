@@ -124,7 +124,7 @@ class ChunkRenderer {
                     float finalAO = mix(0.0, 1.0, vAo / 3.0);
 
                     // gl_FragColor = vec4(texel.rgb * finalAO, texel.a);
-                    gl_FragColor = vec4(vec3(1.0,1.0,1.0) * finalAO, texel.a);
+                    gl_FragColor = vec4(vec2(vAo / 3.0), 1.0, 1.0);
                 }
             `,
             uniforms: {
@@ -212,14 +212,14 @@ class ChunkRenderer {
 
         function getAo(currentPos, step, axis) {
             const aoLevels = []
-            const [x, y, z] = [
-                currentPos[0] - step[0],
-                currentPos[1] - step[1],
-                currentPos[2] - step[2],
+            const [x, y, z] = currentPos
+            const [a1, a2] = [0, 1, 2].filter((i) => i !== axis)
+            const cornerOffsets = [
+                [-1, +1], // TL
+                [+1, +1], // TR
+                [-1, -1], // BL
+                [+1, -1], // BR
             ]
-            // const [x, y, z] = currentPos
-            const otherAxes = [0, 1, 2].filter((i) => i !== axis)
-            const [a1, a2] = otherAxes
 
             const getBlock = (dx, dy, dz) => {
                 const block = world.getChunkBlock(
@@ -232,40 +232,32 @@ class ChunkRenderer {
                 return block && !block.transparent ? 1 : 0
             }
 
-            // Iterate over the 4 corner positions
-            for (let s1 = -1; s1 <= 1; s1 += 2) {
-                for (let s2 = -1; s2 <= 1; s2 += 2) {
-                    const side1 = [...step]
-                    const side2 = [...step]
-                    const corner = [...step]
+            for (let i = 0; i < 4; i++) {
+                const [s1, s2] = cornerOffsets[i]
 
-                    side1[a1] += s1
-                    side2[a2] += s2
-                    corner[a1] += s1
-                    corner[a2] += s2
+                const side1 = [0, 0, 0]
+                const side2 = [0, 0, 0]
+                const corner = [0, 0, 0]
 
-                    const posSide1 = [x + side1[0], y + side1[1], z + side1[2]]
-                    const posSide2 = [x + side2[0], y + side2[1], z + side2[2]]
-                    const posCorner = [
-                        x + corner[0],
-                        y + corner[1],
-                        z + corner[2],
-                    ]
+                side1[a1] = s1
+                side2[a2] = s2
+                corner[a1] = s1
+                corner[a2] = s2
 
-                    const hasSide1 = getBlock(...posSide1)
-                    const hasSide2 = getBlock(...posSide2)
-                    const hasCorner = getBlock(...posCorner)
+                const posSide1 = [x + side1[0], y + side1[1], z + side1[2]]
+                const posSide2 = [x + side2[0], y + side2[1], z + side2[2]]
+                const posCorner = [x + corner[0], y + corner[1], z + corner[2]]
 
-                    // Ambient occlusion rule
-                    let ao
-                    if (hasSide1 && hasSide2) {
-                        ao = 0 // fully shadowed
-                    } else {
-                        ao = 3 - hasSide1 + hasSide2 + hasCorner // 0 = dark, 3 = fully lit
-                    }
+                const hasSide1 = getBlock(...posSide1)
+                const hasSide2 = getBlock(...posSide2)
+                const hasCorner = getBlock(...posCorner)
 
-                    aoLevels.push(ao)
-                }
+                let ao =
+                    hasSide1 && hasSide2
+                        ? 0
+                        : 3 - (hasSide1 + hasSide2 + hasCorner)
+
+                aoLevels.push(ao)
             }
 
             const encoded =
@@ -434,7 +426,7 @@ class ChunkRenderer {
                                 )
                             }
 
-                            let aoVals = [
+                            let finalAoVal = [
                                 (aoVal >> 0) & 0b11, // top-left
                                 (aoVal >> 2) & 0b11, // top-right
                                 (aoVal >> 4) & 0b11, // bottom-left
@@ -444,52 +436,49 @@ class ChunkRenderer {
                             // Determine face orientation
 
                             // Fix AO rotation depending on axis
-                            // top left
-                            // top right
-                            // top left
-                            // bottom left
-                            // if (axis === 0) {
-                            //     aoVals = isPositiveFace
-                            //         ? [
-                            //               aoVals[3],
-                            //               aoVals[0],
-                            //               aoVals[2],
-                            //               aoVals[1],
-                            //           ]
-                            //         : [
-                            //               aoVals[1],
-                            //               aoVals[3],
-                            //               aoVals[0],
-                            //               aoVals[2],
-                            //           ]
-                            // } else
-                            if (axis === 1) {
-                                aoVals = isPositiveFace
+                            if (axis === 0) {
+                                finalAoVal = isPositiveFace
                                     ? [
-                                          aoVals[0], // bottom-right
-                                          aoVals[1], // top-right
-                                          aoVals[3], // top-left
-                                          aoVals[2], // bottom-left
+                                          finalAoVal[2], // bottom-right
+                                          finalAoVal[3], // top right
+                                          finalAoVal[1], // top left
+                                          finalAoVal[0], // bottom left
                                       ]
-                                    : [3, 3, 3, 3]
-                            } else {
-                                aoVals = [3, 3, 3, 3]
+                                    : [
+                                          finalAoVal[0], // bottom left
+                                          finalAoVal[2], // bottom right
+                                          finalAoVal[3], // top right
+                                          finalAoVal[1], // top left
+                                      ]
+                            } else if (axis === 1) {
+                                finalAoVal = isPositiveFace
+                                    ? [
+                                          finalAoVal[2], // bottom-right
+                                          finalAoVal[0], // top-right
+                                          finalAoVal[1], // top-left
+                                          finalAoVal[3], // bottom-left
+                                      ]
+                                    : [
+                                          finalAoVal[3], // bottom right
+                                          finalAoVal[2], // bottom left
+                                          finalAoVal[0], // top left
+                                          finalAoVal[1], // top right
+                                      ]
+                            } else if (axis === 2) {
+                                finalAoVal = isPositiveFace
+                                    ? [
+                                          finalAoVal[3], // bottom left
+                                          finalAoVal[2], // bottom right
+                                          finalAoVal[0], // top right
+                                          finalAoVal[1], // top left
+                                      ]
+                                    : [
+                                          finalAoVal[2], // bottom-right
+                                          finalAoVal[0], // top-right
+                                          finalAoVal[1], // top-left
+                                          finalAoVal[3], // bottom-left
+                                      ]
                             }
-                            // } else if (axis === 2) {
-                            //     aoVals = isPositiveFace
-                            //         ? [
-                            //               aoVals[0],
-                            //               aoVals[2],
-                            //               aoVals[3],
-                            //               aoVals[1],
-                            //           ]
-                            //         : [
-                            //               aoVals[2],
-                            //               aoVals[3],
-                            //               aoVals[1],
-                            //               aoVals[0],
-                            //           ]
-                            // }
 
                             faces.push([
                                 vCount,
@@ -497,7 +486,7 @@ class ChunkRenderer {
                                 vCount + 2,
                                 vCount + 3,
                                 texOffset,
-                                aoVals,
+                                finalAoVal,
                             ])
 
                             // Zero the mask
