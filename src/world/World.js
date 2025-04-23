@@ -47,7 +47,7 @@ class World {
         this.lastPlayerX = playerPosX
         this.lastPlayerZ = playerPosZ
 
-        const worldSize = 1
+        const worldSize = 8
         const worldSizeSq = worldSize * worldSize
 
         // Loop through the render distance
@@ -164,31 +164,18 @@ class World {
 
     getChunkBlock(chunkX, chunkY, x, y, z) {
         // Adjust X coordinate and chunk
-        while (x < 0) {
-            chunkX--
-            x += 16
-        }
-        while (x >= 16) {
-            chunkX++
-            x -= 16
-        }
+        const offsetChunkX = Math.floor(x / 16)
+        chunkX += offsetChunkX
+        x = ((x % 16) + 16) % 16
 
         // Adjust Z coordinate and chunk
-        while (z < 0) {
-            chunkY--
-            z += 16
-        }
-        while (z >= 16) {
-            chunkY++
-            z -= 16
-        }
+        const offsetChunkY = Math.floor(z / 16)
+        chunkY += offsetChunkY
+        z = ((z % 16) + 16) % 16
 
         const chunk = this.chunks.get(`${chunkX},${chunkY}`)
         if (chunk != null && chunk.generated) {
-            const chunkBlockX = x
-            const chunkBlockZ = z
-            const block = chunk.getBlock(chunkBlockX, y, chunkBlockZ)
-            return block
+            return chunk.getBlock(x, y, z)
         } else {
             return null
         }

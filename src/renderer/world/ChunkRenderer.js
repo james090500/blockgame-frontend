@@ -121,10 +121,10 @@ class ChunkRenderer {
                     // Apply tiling and offset
                     vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
                     vec4 texel = texture2D(baseTexture, texCoord);
-                    float finalAO = mix(0.0, 1.0, vAo / 3.0);
+                    float finalAO = mix(0.2, 1.0, vAo / 3.0);
 
-                    // gl_FragColor = vec4(texel.rgb * finalAO, texel.a);
-                    gl_FragColor = vec4(vec2(vAo / 3.0), 1.0, 1.0);
+                    gl_FragColor = vec4(texel.rgb * finalAO, texel.a);
+                    //gl_FragColor = vec4(vec2(vAo / 3.0), 1.0, 1.0);
                 }
             `,
             uniforms: {
@@ -241,9 +241,9 @@ class ChunkRenderer {
                     side2 = [0, 0, 0]
                     corner = [0, 0, 0]
                 } else {
-                    side1 = [...step]
-                    side2 = [...step]
-                    corner = [...step]
+                    side1 = [-step[0], -step[1], -step[2]]
+                    side2 = [-step[0], -step[1], -step[2]]
+                    corner = [-step[0], -step[1], -step[2]]
                 }
 
                 side1[a1] = s1
@@ -330,7 +330,7 @@ class ChunkRenderer {
                                 return neighbor &&
                                     (!neighbor.transparent ||
                                         blockA.transparent)
-                                    ? 2
+                                    ? 0
                                     : id
                             }
 
@@ -468,18 +468,18 @@ class ChunkRenderer {
                                           finalAoVal[3], // bottom-left
                                       ]
                                     : [
-                                          finalAoVal[3], // bottom right
-                                          finalAoVal[2], // bottom left
-                                          finalAoVal[0], // top left
-                                          finalAoVal[1], // top right
+                                          finalAoVal[2], // bottom right
+                                          finalAoVal[3], // bottom left
+                                          finalAoVal[1], // top left
+                                          finalAoVal[0], // top right
                                       ]
                             } else if (axis === 2) {
                                 finalAoVal = isPositiveFace
                                     ? [
-                                          finalAoVal[3], // bottom left
-                                          finalAoVal[2], // bottom right
-                                          finalAoVal[0], // top right
-                                          finalAoVal[1], // top left
+                                          finalAoVal[2], // bottom left
+                                          finalAoVal[3], // bottom right
+                                          finalAoVal[1], // top right
+                                          finalAoVal[0], // top left
                                       ]
                                     : [
                                           finalAoVal[2], // bottom-right
