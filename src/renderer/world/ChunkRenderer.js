@@ -210,15 +210,15 @@ class ChunkRenderer {
             return voxelData[x + dimensions[0] * (y + dimensions[1] * z)]
         }
 
-        function getAo(currentPos, step, axis) {
+        function getAo(currentPos, step, axis, neg) {
             const aoLevels = []
             const [x, y, z] = currentPos
             const [a1, a2] = [0, 1, 2].filter((i) => i !== axis)
             const cornerOffsets = [
-                [-1, +1], // TL
-                [+1, +1], // TR
+                [-1, 1], // TL
+                [1, 1], // TR
                 [-1, -1], // BL
-                [+1, -1], // BR
+                [1, -1], // BR
             ]
 
             const getBlock = (dx, dy, dz) => {
@@ -235,9 +235,16 @@ class ChunkRenderer {
             for (let i = 0; i < 4; i++) {
                 const [s1, s2] = cornerOffsets[i]
 
-                const side1 = [0, 0, 0]
-                const side2 = [0, 0, 0]
-                const corner = [0, 0, 0]
+                let side1, side2, corner
+                if (!neg) {
+                    side1 = [0, 0, 0]
+                    side2 = [0, 0, 0]
+                    corner = [0, 0, 0]
+                } else {
+                    side1 = [...step]
+                    side2 = [...step]
+                    corner = [...step]
+                }
 
                 side1[a1] = s1
                 side2[a2] = s2
@@ -304,7 +311,7 @@ class ChunkRenderer {
 
                         if (!!currID === !!nextID) {
                             mask[n] = 0
-                            aoMask[n] = 0
+                            aoMask[n] = 3
                         } else {
                             const getMaskValue = (
                                 id,
@@ -330,10 +337,10 @@ class ChunkRenderer {
                             // Generate an AO for the block, the value will be a bitwise total uniquie to the AO pattern
                             if (currID) {
                                 mask[n] = getMaskValue(currID, ...step)
-                                aoMask[n] = getAo(nextPos, step, axis)
+                                aoMask[n] = getAo(nextPos, step, axis, false)
                             } else {
                                 mask[n] = -getMaskValue(nextID)
-                                aoMask[n] = -getAo(nextPos, step, axis)
+                                aoMask[n] = -getAo(nextPos, step, axis, true)
                             }
                         }
                     }
@@ -397,6 +404,9 @@ class ChunkRenderer {
                                 du[v] = height
                             }
 
+                            // Check if a positive face
+                            const isPositiveFace = mask[n] > 0
+
                             const vCount = vertices.length
                             vertices.push([pos[0], pos[1], pos[2]])
                             vertices.push([
@@ -419,7 +429,6 @@ class ChunkRenderer {
                             let texOffset = block.textureOffset()
 
                             // Determine if face is top or bottom when sweeping the Y axis
-                            const isPositiveFace = mask[n] > 0
                             if (axis === 1) {
                                 texOffset = block.textureOffset(
                                     isPositiveFace ? 'top' : 'bottom'
@@ -439,16 +448,16 @@ class ChunkRenderer {
                             if (axis === 0) {
                                 finalAoVal = isPositiveFace
                                     ? [
-                                          finalAoVal[2], // bottom-right
+                                          finalAoVal[2], // bottom right
                                           finalAoVal[3], // top right
                                           finalAoVal[1], // top left
                                           finalAoVal[0], // bottom left
                                       ]
                                     : [
-                                          finalAoVal[0], // bottom left
-                                          finalAoVal[2], // bottom right
-                                          finalAoVal[3], // top right
-                                          finalAoVal[1], // top left
+                                          finalAoVal[2], // bottom left
+                                          finalAoVal[0], // bottom right
+                                          finalAoVal[1], // top right
+                                          finalAoVal[3], // top left
                                       ]
                             } else if (axis === 1) {
                                 finalAoVal = isPositiveFace
