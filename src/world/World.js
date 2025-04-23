@@ -1,15 +1,22 @@
 import workerpool from 'workerpool'
-import { HemisphereLight, Color, Clock } from 'three'
+import { HemisphereLight, Color } from 'three'
 import Chunk from './Chunk.js'
 import BlockGame from '../BlockGame.js'
 import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
+import ChunkMesh from '../workers/ChunkMesh.js?url&worker'
 
 class World {
     wireframe = false
     lastPlayerX = null
     lastPlayerZ = null
     chunks = new Map()
-    pool = workerpool.pool(ChunkTerrain, {
+    terrainPool = workerpool.pool(ChunkTerrain, {
+        maxWorkers: 1,
+        workerOpts: {
+            type: import.meta.env.PROD ? undefined : 'module',
+        },
+    })
+    chunkMeshPool = workerpool.pool(ChunkMesh, {
         maxWorkers: 1,
         workerOpts: {
             type: import.meta.env.PROD ? undefined : 'module',
@@ -81,7 +88,7 @@ class World {
             this.chunks.set(key, chunk)
 
             // Add chunks to a promise so we render when completed
-            this.pool
+            this.terrainPool
                 .exec('chunkTerrain', [
                     {
                         seed: this.worldSeed,
@@ -96,6 +103,9 @@ class World {
                     chunk.generated = true
 
                     chunk.maybeRenderChunk(this)
+                })
+                .catch((err) => {
+                    console.error('Error generating chunk:', err)
                 })
 
             // Mark adjacent chunks for re-rendering

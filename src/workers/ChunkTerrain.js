@@ -26,8 +26,7 @@ class ChunkTerrain {
             return null
         }
 
-        const index =
-            y * this.chunkSize * this.chunkSize + z * this.chunkSize + x
+        const index = x + this.chunkSize * (y + this.chunkHeight * z)
         return index
     }
 

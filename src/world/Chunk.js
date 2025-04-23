@@ -37,7 +37,6 @@ class Chunk {
     }
 
     render(world) {
-        this.chunkRenderer.dispose()
         this.chunkRenderer.render(world, this)
         this.chunkRenderer.renderTransparent(world, this)
         this.rendered = true
@@ -59,8 +58,7 @@ class Chunk {
             throw new Error('Chunk data not populated')
         }
 
-        const index =
-            y * this.chunkSize * this.chunkSize + z * this.chunkSize + x
+        const index = x + this.chunkSize * (y + this.chunkHeight * z)
         return index
     }
 
@@ -70,33 +68,6 @@ class Chunk {
         const z = Math.floor((index % (S * S)) / S)
         const x = index % S
         return { x, y, z }
-    }
-
-    hasBlockAbove(x, y, z) {
-        const start =
-            (y + 1) * this.chunkSize * this.chunkSize + z * this.chunkSize + x
-        const stride = this.chunkSize * this.chunkSize
-
-        for (let i = start; i < this.chunkHeight * stride; i += stride) {
-            if (this.chunkData[i] != null) return true
-        }
-
-        return false
-    }
-
-    blockRecievesShadow(x, y, z) {
-        const start =
-            (y + 1) * this.chunkSize * this.chunkSize + z * this.chunkSize + x
-        const stride = this.chunkSize * this.chunkSize
-
-        //If the block above is not air, then no shadow beneath it
-        if (this.chunkData[start] != null) return false
-
-        for (let i = start; i < this.chunkHeight * stride; i += stride) {
-            if (this.chunkData[i] != null) return true
-        }
-
-        return false
     }
 
     getBlock(x, y, z) {

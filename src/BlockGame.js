@@ -27,19 +27,19 @@ class BlockGame {
         this.gameManager = new GameManager()
 
         this.loop = this.loop.bind(this)
-        this.loop()
     }
     loop() {
         requestAnimationFrame(this.loop)
+        if (!this.config.PAUSED) {
+            const delta = this.clock.getDelta()
+            const time = this.clock.getElapsedTime()
 
-        const delta = this.clock.getDelta()
-        const time = this.clock.getElapsedTime()
+            // Scene Renderer
+            this.renderer.render()
 
-        // Scene Renderer
-        this.renderer.render()
-
-        // Game Loop
-        this.gameManager.gameLoop(delta, time)
+            // Game Loop
+            this.gameManager.gameLoop(delta, time)
+        }
     }
     /**
      * Dispose
@@ -51,6 +51,7 @@ class BlockGame {
      * API Methods
      */
     lock() {
+        this.loop()
         this.input.lock()
     }
 }
