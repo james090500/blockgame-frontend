@@ -54,7 +54,7 @@ class World {
         this.lastPlayerX = playerPosX
         this.lastPlayerZ = playerPosZ
 
-        const worldSize = 8
+        const worldSize = 1
         const worldSizeSq = worldSize * worldSize
 
         // Loop through the render distance

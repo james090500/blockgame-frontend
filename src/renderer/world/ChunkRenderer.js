@@ -94,7 +94,6 @@ class ChunkRenderer {
             `,
             fragmentShader: `
                 uniform sampler2D baseTexture;
-                uniform vec2 tileOffset;
 
                 varying vec2 vUv;
                 varying vec3 vNormal;
@@ -103,22 +102,10 @@ class ChunkRenderer {
                 varying float vAo;
 
                 void main() {
-                    vec2 tileSize = vec2(0.0625, 0.0625);
-                    vec2 tileUV;
-
-                    // Determine correct UV projection based on face normal
-                    if (abs(vNormal.x) > 0.5) {  // Left/Right faces
-                        tileUV = vPosition.zy;
-                    } else if (vNormal.y > 0.5) {  // Top Face
-                        tileUV = vPosition.xz;
-                    } else if (vNormal.y < -0.5) {  // Bottom Face
-                        tileUV = vPosition.xz;
-                    } else {  // Front/Back faces
-                        tileUV = vPosition.xy;
-                    }
+                    vec2 tileSize = vec2(0.0625);
 
                     // Apply tiling and offset
-                    vec2 texCoord = vTexOffset + tileSize * fract(tileUV);
+                    vec2 texCoord = vUv * tileSize + vTexOffset;
                     vec4 texel = texture2D(baseTexture, texCoord);
                     float finalAO = mix(0.2, 1.0, vAo / 3.0);
 
@@ -160,6 +147,7 @@ class ChunkRenderer {
                 const vertices = []
                 const indices = []
                 const textureOffset = []
+                const uv = []
                 const ao = []
 
                 for (let i = 0; i < result.vertices.length; ++i) {
@@ -170,12 +158,13 @@ class ChunkRenderer {
                 for (let i = 0; i < result.faces.length; ++i) {
                     const q = result.faces[i]
 
-                    if (q.length === 6) {
+                    if (q.length === 7) {
                         indices.push(q[0], q[1], q[2], q[0], q[2], q[3]) // Two triangles
 
                         for (let j = 0; j < 4; j++) {
                             textureOffset.push(q[4][0], q[4][1])
-                            ao.push(q[5][j])
+                            uv.push(q[5][j][0], q[5][j][1])
+                            ao.push(q[6][j])
                         }
                     }
                 }
@@ -191,6 +180,8 @@ class ChunkRenderer {
                     'textureOffset',
                     new Float32BufferAttribute(textureOffset, 2)
                 )
+
+                geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
 
                 geometry.setAttribute('ao', new Float32BufferAttribute(ao, 1))
 

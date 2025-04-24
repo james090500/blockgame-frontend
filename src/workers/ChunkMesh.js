@@ -264,24 +264,7 @@ class ChunkMesh {
                             // Check if a positive face
                             const isPositiveFace = mask[n] > 0
 
-                            const vCount = vertices.length
-                            vertices.push([pos[0], pos[1], pos[2]])
-                            vertices.push([
-                                pos[0] + du[0],
-                                pos[1] + du[1],
-                                pos[2] + du[2],
-                            ])
-                            vertices.push([
-                                pos[0] + du[0] + dv[0],
-                                pos[1] + du[1] + dv[1],
-                                pos[2] + du[2] + dv[2],
-                            ])
-                            vertices.push([
-                                pos[0] + dv[0],
-                                pos[1] + dv[1],
-                                pos[2] + dv[2],
-                            ])
-
+                            // Get texture
                             const block = Blocks.ids[blockId]
                             let texOffset = block.textureOffset()
 
@@ -292,6 +275,34 @@ class ChunkMesh {
                                 )
                             }
 
+                            // Set vertices
+                            const vCount = vertices.length
+                            const v0 = [pos[0], pos[1], pos[2]]
+                            const v1 = [
+                                pos[0] + du[0],
+                                pos[1] + du[1],
+                                pos[2] + du[2],
+                            ]
+                            const v2 = [
+                                pos[0] + du[0] + dv[0],
+                                pos[1] + du[1] + dv[1],
+                                pos[2] + du[2] + dv[2],
+                            ]
+                            const v3 = [
+                                pos[0] + dv[0],
+                                pos[1] + dv[1],
+                                pos[2] + dv[2],
+                            ]
+
+                            // Set uvs
+                            let uvs = [
+                                [1, 0],
+                                [1, 1],
+                                [0, 1],
+                                [0, 0],
+                            ]
+
+                            // Create the final AO value
                             let finalAoVal = [
                                 (aoVal >> 0) & 0b11, // top-left
                                 (aoVal >> 2) & 0b11, // top-right
@@ -299,7 +310,28 @@ class ChunkMesh {
                                 (aoVal >> 6) & 0b11, // bottom-right
                             ]
 
-                            // Determine face orientation
+                            // Create the final vertices order
+                            if (
+                                finalAoVal[0] + finalAoVal[3] >
+                                finalAoVal[1] + finalAoVal[2]
+                            ) {
+                                vertices.push(v0)
+                                vertices.push(v3)
+                                vertices.push(v2)
+                                vertices.push(v1)
+
+                                uvs = [
+                                    [1, 0],
+                                    [1, 1],
+                                    [0, 1],
+                                    [0, 0],
+                                ]
+                            } else {
+                                vertices.push(v0)
+                                vertices.push(v1)
+                                vertices.push(v2)
+                                vertices.push(v3)
+                            }
 
                             // Fix AO rotation depending on axis
                             if (axis === 0) {
@@ -352,6 +384,7 @@ class ChunkMesh {
                                 vCount + 2,
                                 vCount + 3,
                                 texOffset,
+                                uvs,
                                 finalAoVal,
                             ])
 
