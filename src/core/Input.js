@@ -83,9 +83,16 @@ class Controls {
      */
     lock() {
         //https://issues.chromium.org/issues/40662608
-        BlockGame.instance.renderer.renderer.domElement.requestPointerLock({
-            unadjustedMovement: true,
-        })
+        try {
+            BlockGame.instance.renderer.renderer.domElement.requestPointerLock({
+                unadjustedMovement: true,
+            })
+        } catch (error) {
+            console.error('Pointer lock failed', error)
+            if (error.name == 'NotSupportedError') {
+                BlockGame.instance.renderer.renderer.domElement.requestPointerLock()
+            }
+        }
     }
 }
 

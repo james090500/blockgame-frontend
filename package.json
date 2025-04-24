@@ -11,13 +11,13 @@
         "lint": "eslint src --fix"
     },
     "dependencies": {
-        "three": "^0.174.0",
+        "three": "^0.176.0",
         "workerpool": "^9.2.0"
     },
     "devDependencies": {
-        "eslint-config-prettier": "^10.0.2",
-        "eslint-plugin-prettier": "^5.2.3",
-        "vite": "^6.2.0",
+        "eslint-config-prettier": "^10.1.2",
+        "eslint-plugin-prettier": "^5.2.6",
+        "vite": "^6.3.3",
         "vite-plugin-eslint": "^1.8.1"
     }
 }
