@@ -4,7 +4,10 @@ import BlockGame from '../BlockGame.js'
 class Controls {
     mouse = {
         LeftClick: false,
+        MiddleClick: false,
         RightClick: false,
+        ScrollUp: false,
+        ScrollDown: false,
     }
 
     keys = {
@@ -41,8 +44,20 @@ class Controls {
             if (!BlockGame.instance.config.PAUSED) {
                 if (event.button == 0) {
                     this.mouse.LeftClick = true
+                } else if (event.button == 1) {
+                    this.mouse.MiddleClick = true
                 } else if (event.button == 2) {
                     this.mouse.RightClick = true
+                }
+            }
+        })
+
+        window.addEventListener('mousewheel', (event) => {
+            if (!BlockGame.instance.config.PAUSED) {
+                if (event.deltaY < 0) {
+                    this.mouse.ScrollUp = true
+                } else if (event.deltaY > 0) {
+                    this.mouse.ScrollDown = true
                 }
             }
         })

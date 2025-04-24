@@ -6,6 +6,7 @@ class WaterBlock extends Block {
         this.id = 5
         this.texture = 205
         this.transparent = true
+        this.solid = false
     }
 }
 

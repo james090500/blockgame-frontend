@@ -11,6 +11,7 @@ class LocalPlayer {
     falling = false
 
     clock = new Clock()
+    playerWidth = 0.4
     playerHeight = 1.5
     velocity = new Vector3(0, 0, 0)
     fallVelocity = new Vector3(0, 0, 0)
@@ -21,9 +22,10 @@ class LocalPlayer {
      * @param {Vector3} min - Minimum bounds of the AABB.
      * @param {Vector3} max - Maximum bounds of the AABB.
      * @param {Object} world - The world object to query blocks from.
+     * @param {Object} futureBlock - Are we attempting to place a block?
      * @returns {boolean} True if a collision is found.
      */
-    isAABBColliding(min, max, world) {
+    isAABBColliding(min, max, world, futureBlock = false) {
         if (this.noclip) {
             return false
         }
@@ -31,7 +33,18 @@ class LocalPlayer {
         for (let x = Math.floor(min.x); x <= Math.floor(max.x); x++) {
             for (let y = Math.floor(min.y); y <= Math.floor(max.y); y++) {
                 for (let z = Math.floor(min.z); z <= Math.floor(max.z); z++) {
-                    if (world.getBlock(x, y, z)) {
+                    if (futureBlock) {
+                        if (
+                            futureBlock[0] === x &&
+                            futureBlock[1] === y &&
+                            futureBlock[2] === z
+                        ) {
+                            return true
+                        }
+                    }
+
+                    const block = world.getBlock(x, y, z)
+                    if (block && block.solid) {
                         return true
                     }
                 }
@@ -150,7 +163,8 @@ class LocalPlayer {
         const yVelocity = this.fallVelocity.y * delta
 
         // Half the players width
-        const halfWidth = 0.2
+        const halfWidth = this.playerWidth / 2
+
         if (
             !this.tryMove(
                 camera,
@@ -191,6 +205,8 @@ class LocalPlayer {
      * @param {number} delta - Time since last frame.
      */
     updateInteraction(delta) {
+        let blockChanged = false
+
         const mouse = BlockGame.instance.input.mouse
         const camera = BlockGame.instance.renderer.sceneManager.camera
         const world = BlockGame.instance.gameManager.world
@@ -225,17 +241,49 @@ class LocalPlayer {
             )
         }
 
+        if (mouse.MiddleClick) {
+            mouse.MiddleClick = false
+            const block = world.getBlock(
+                currentBlock[0],
+                currentBlock[1],
+                currentBlock[2]
+            )
+
+            if (block) {
+                this.currentBlock = block.id
+                blockChanged = true
+            }
+        }
+
         // Detect right click object
         if (mouse.RightClick) {
             mouse.RightClick = false
 
             if (lastBlock && !(lastBlock instanceof WaterBlock)) {
-                world.setBlock(
-                    previousBlock[0],
-                    previousBlock[1],
-                    previousBlock[2],
-                    this.currentBlock
+                const pos = camera.position
+
+                // Half the players width
+                const halfWidth = this.playerWidth / 2
+
+                const min = new Vector3(
+                    pos.x - halfWidth,
+                    pos.y - this.playerHeight,
+                    pos.z - halfWidth
                 )
+                const max = new Vector3(
+                    pos.x + halfWidth,
+                    pos.y,
+                    pos.z + halfWidth
+                )
+
+                if (!this.isAABBColliding(min, max, world, previousBlock)) {
+                    world.setBlock(
+                        previousBlock[0],
+                        previousBlock[1],
+                        previousBlock[2],
+                        this.currentBlock
+                    )
+                }
             }
         }
 
@@ -247,13 +295,31 @@ class LocalPlayer {
         }
 
         // Change the keys
-        const keys = BlockGame.instance.input.keys
-        if (keys.KeyC) {
-            keys.KeyC = false
+        if (mouse.ScrollUp) {
+            mouse.ScrollUp = false
             this.currentBlock++
+            blockChanged = true
+        }
+
+        if (mouse.ScrollDown) {
+            mouse.ScrollDown = false
+            this.currentBlock--
+            blockChanged = true
+        }
+
+        if (blockChanged) {
             if (this.currentBlock > Blocks.ids.length - 1) {
                 this.currentBlock = 1
+            } else if (this.currentBlock < 1) {
+                this.currentBlock = Blocks.ids.length - 1
             }
+
+            const block = Blocks.ids[this.currentBlock]
+            const textureOffset = block.textureOffset()
+            BlockGame.instance.gameManager.playerGui.playerHand.updateBlock(
+                textureOffset[0],
+                textureOffset[1]
+            )
         }
     }
 

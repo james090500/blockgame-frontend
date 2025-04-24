@@ -2,6 +2,7 @@ class Block {
     id = 999
     texture = 14
     transparent = false
+    solid = true
 
     uv() {
         const tileScale = 16 / 256
@@ -16,7 +17,7 @@ class Block {
     }
 
     textureOffset(face = null) {
-        const tileScale = 16 / 256
+        const tileScale = 1 / 16
 
         const x = this.texture % 16
         const y = Math.floor(this.texture / 16)
