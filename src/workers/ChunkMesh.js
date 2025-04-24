@@ -261,21 +261,19 @@ class ChunkMesh {
                                 du[v] = height
                             }
 
-                            // Check if a positive face
+                            // Determine face orientation
                             const isPositiveFace = mask[n] > 0
 
-                            // Get texture
+                            // Get block and texture offset
                             const block = Blocks.ids[blockId]
                             let texOffset = block.textureOffset()
-
-                            // Determine if face is top or bottom when sweeping the Y axis
                             if (axis === 1) {
                                 texOffset = block.textureOffset(
                                     isPositiveFace ? 'top' : 'bottom'
                                 )
                             }
 
-                            // Set vertices
+                            // Prepare base vertex count and corners
                             const vCount = vertices.length
                             const v0 = [pos[0], pos[1], pos[2]]
                             const v1 = [
@@ -284,108 +282,76 @@ class ChunkMesh {
                                 pos[2] + du[2],
                             ]
                             const v2 = [
-                                pos[0] + du[0] + dv[0],
-                                pos[1] + du[1] + dv[1],
-                                pos[2] + du[2] + dv[2],
+                                v1[0] + dv[0],
+                                v1[1] + dv[1],
+                                v1[2] + dv[2],
                             ]
                             const v3 = [
-                                pos[0] + dv[0],
-                                pos[1] + dv[1],
-                                pos[2] + dv[2],
+                                v0[0] + dv[0],
+                                v0[1] + dv[1],
+                                v0[2] + dv[2],
                             ]
 
-                            // Set uvs
-                            let uvs = [
-                                [1, 0],
-                                [1, 1],
-                                [0, 1],
-                                [0, 0],
+                            // Extract AO values
+                            let ao = [
+                                (aoVal >> 0) & 0b11,
+                                (aoVal >> 2) & 0b11,
+                                (aoVal >> 4) & 0b11,
+                                (aoVal >> 6) & 0b11,
                             ]
 
-                            // Create the final AO value
-                            let finalAoVal = [
-                                (aoVal >> 0) & 0b11, // top-left
-                                (aoVal >> 2) & 0b11, // top-right
-                                (aoVal >> 4) & 0b11, // bottom-left
-                                (aoVal >> 6) & 0b11, // bottom-right
-                            ]
-
-                            // Create the final vertices order
-                            if (
-                                finalAoVal[0] + finalAoVal[3] >
-                                finalAoVal[1] + finalAoVal[2]
-                            ) {
-                                vertices.push(v0)
-                                vertices.push(v3)
-                                vertices.push(v2)
-                                vertices.push(v1)
-
-                                uvs = [
-                                    [1, 0],
-                                    [1, 1],
-                                    [0, 1],
-                                    [0, 0],
-                                ]
-                            } else {
-                                vertices.push(v0)
-                                vertices.push(v1)
-                                vertices.push(v2)
-                                vertices.push(v3)
-                            }
-
-                            // Fix AO rotation depending on axis
+                            // Rotate AO per axis and face direction
+                            let faceAO = []
                             if (axis === 0) {
-                                finalAoVal = isPositiveFace
-                                    ? [
-                                          finalAoVal[2], // bottom right
-                                          finalAoVal[3], // top right
-                                          finalAoVal[1], // top left
-                                          finalAoVal[0], // bottom left
-                                      ]
-                                    : [
-                                          finalAoVal[2], // bottom left
-                                          finalAoVal[0], // bottom right
-                                          finalAoVal[1], // top right
-                                          finalAoVal[3], // top left
-                                      ]
+                                faceAO = isPositiveFace
+                                    ? [ao[2], ao[3], ao[1], ao[0]]
+                                    : [ao[2], ao[0], ao[1], ao[3]]
                             } else if (axis === 1) {
-                                finalAoVal = isPositiveFace
-                                    ? [
-                                          finalAoVal[2], // bottom-right
-                                          finalAoVal[0], // top-right
-                                          finalAoVal[1], // top-left
-                                          finalAoVal[3], // bottom-left
-                                      ]
-                                    : [
-                                          finalAoVal[2], // bottom right
-                                          finalAoVal[3], // bottom left
-                                          finalAoVal[1], // top left
-                                          finalAoVal[0], // top right
-                                      ]
+                                faceAO = isPositiveFace
+                                    ? [ao[2], ao[0], ao[1], ao[3]]
+                                    : [ao[2], ao[3], ao[1], ao[0]]
                             } else if (axis === 2) {
-                                finalAoVal = isPositiveFace
-                                    ? [
-                                          finalAoVal[2], // bottom left
-                                          finalAoVal[3], // bottom right
-                                          finalAoVal[1], // top right
-                                          finalAoVal[0], // top left
-                                      ]
-                                    : [
-                                          finalAoVal[2], // bottom-right
-                                          finalAoVal[0], // top-right
-                                          finalAoVal[1], // top-left
-                                          finalAoVal[3], // bottom-left
-                                      ]
+                                faceAO = isPositiveFace
+                                    ? [ao[2], ao[3], ao[1], ao[0]]
+                                    : [ao[2], ao[0], ao[1], ao[3]]
                             }
 
+                            // Choose diagonal based on AO
+                            let faceVerts, faceIndices
+                            const flipDiagonal = ao[0] + ao[3] > ao[1] + ao[2]
+
+                            if (flipDiagonal) {
+                                faceVerts = [v3, v2, v1, v0]
+                                faceIndices = [
+                                    vCount + 2,
+                                    vCount + 1,
+                                    vCount + 0,
+                                    vCount + 3,
+                                ]
+
+                                // Reverse AO
+                                faceAO = faceAO.reverse()
+                            } else {
+                                faceVerts = [v0, v1, v2, v3]
+                                faceIndices = [
+                                    vCount,
+                                    vCount + 1,
+                                    vCount + 2,
+                                    vCount + 3,
+                                ]
+                            }
+
+                            // Add vertices
+                            vertices.push(...faceVerts)
+
+                            // Push face data
                             faces.push([
-                                vCount,
-                                vCount + 1,
-                                vCount + 2,
-                                vCount + 3,
+                                faceIndices[0],
+                                faceIndices[1],
+                                faceIndices[2],
+                                faceIndices[3],
                                 texOffset,
-                                uvs,
-                                finalAoVal,
+                                faceAO,
                             ])
 
                             // Zero the mask
