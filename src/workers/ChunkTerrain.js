@@ -1,5 +1,5 @@
 import workerpool from 'workerpool'
-import { ImprovedNoise } from 'three/examples/jsm/Addons.js'
+import { createNoise2D, createNoise3D } from 'simplex-noise'
 import Blocks from '../blocks/Blocks.js'
 
 class ChunkTerrain {
@@ -12,6 +12,14 @@ class ChunkTerrain {
         this.chunkHeight = height
 
         return this.generateTerrain()
+    }
+
+    seedPRNG() {
+        let x = Math.sin(this.worldSeed) * 10000
+        return () => {
+            x = Math.sin(x) * 10000
+            return x - Math.floor(x)
+        }
     }
 
     getIndex(x, y, z) {
@@ -50,36 +58,42 @@ class ChunkTerrain {
     }
 
     generateTerrain() {
-        const perlin = new ImprovedNoise()
-        const smoothness = 32
+        const noise2D = createNoise2D(this.seedPRNG())
+        const noise3D = createNoise3D(this.seedPRNG())
+
+        const smoothness = 45
         const waterLevel = 64
 
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
+                const nx = x + this.chunkX * this.chunkSize
+                const nz = z + this.chunkY * this.chunkSize
+                // Land vs Water generation
+                let biome = noise2D(nx * 0.0025, nz * 0.0025)
+
                 for (let y = this.chunkHeight - 1; y >= 0; y--) {
-                    const nx = x + this.chunkX * this.chunkSize
                     const ny = y
-                    const nz = z + this.chunkY * this.chunkSize
 
                     // Large-scale terrain shaping
-                    let density = perlin.noise(
+                    let density = noise3D(
                         nx / smoothness,
                         ny / smoothness,
                         nz / smoothness
                     )
 
-                    // More land than water
-                    density += 0.3
-
                     // Adjust density based on Y value to make it higher at lower Y values
                     const heightFactor = (waterLevel - y) / waterLevel
-                    if (y < waterLevel) {
-                        density += heightFactor * 4
-                    } else if (density < 0.5) {
-                        density += heightFactor * 4
+
+                    // More land than water
+                    density += 0.3
+                    if (y < waterLevel || density < 0.5) {
+                        density += heightFactor * 10
                     } else {
-                        density += heightFactor * 2
+                        density += heightFactor * 5
                     }
+
+                    // Adjust density based on biome
+                    density += biome
 
                     let nextBlock
                     const previousBlock = this.getBlock(x, y + 1, z)

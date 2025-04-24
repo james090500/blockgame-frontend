@@ -87,6 +87,9 @@ class LocalPlayer {
      */
     updateMovement(delta) {
         let moveSpeed = 0.9
+        if (this.noclip) {
+            moveSpeed = 10
+        }
 
         // Get necessary references
         const camera = BlockGame.instance.renderer.sceneManager.camera

@@ -22,7 +22,7 @@ class World {
             type: import.meta.env.PROD ? undefined : 'module',
         },
     })
-    worldSeed = 0
+    worldSeed = Math.floor(Math.random() * 1000000)
 
     constructor() {
         // Ambient Light
