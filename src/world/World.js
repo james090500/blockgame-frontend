@@ -1,5 +1,5 @@
 import workerpool from 'workerpool'
-import { HemisphereLight, Color } from 'three'
+import { HemisphereLight, Color, Fog } from 'three'
 import Chunk from './Chunk.js'
 import BlockGame from '../BlockGame.js'
 import ChunkTerrain from '../workers/ChunkTerrain.js?url&worker'
@@ -26,11 +26,20 @@ class World {
 
     constructor() {
         // Ambient Light
+        this.skyColor = 0x99ddff
         this.ambientLight = new HemisphereLight(0xffffff, 0xffffff, 5)
         BlockGame.instance.renderer.sceneManager.add(this.ambientLight)
 
+        // Sky
         BlockGame.instance.renderer.sceneManager.scene.background = new Color(
-            0x99ddff
+            this.skyColor
+        )
+
+        // Fog
+        BlockGame.instance.renderer.sceneManager.scene.fog = new Fog(
+            this.skyColor,
+            90,
+            110
         )
     }
 
