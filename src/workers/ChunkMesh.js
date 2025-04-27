@@ -266,9 +266,9 @@ class ChunkMesh {
 
                             // Get block and texture offset
                             const block = Blocks.ids[blockId]
-                            let texOffset = block.textureOffset()
+                            let texOffset = block.getTexture()
                             if (axis === 1) {
-                                texOffset = block.textureOffset(
+                                texOffset = block.getTexture(
                                     isPositiveFace ? 'top' : 'bottom'
                                 )
                             }

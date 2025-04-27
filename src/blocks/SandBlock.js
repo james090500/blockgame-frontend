@@ -1,9 +1,9 @@
 import Block from './Block.js'
 
 class SandBlock extends Block {
-    constructor() {
+    constructor(id) {
         super()
-        this.id = 4
+        this.id = id
         this.texture = 18
     }
 }

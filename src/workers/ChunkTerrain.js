@@ -1,5 +1,5 @@
 import workerpool from 'workerpool'
-import { createNoise3D } from 'simplex-noise'
+import { createNoise2D, createNoise3D } from 'simplex-noise'
 import Blocks from '../blocks/Blocks.js'
 
 class ChunkTerrain {
@@ -11,11 +11,14 @@ class ChunkTerrain {
         this.chunkSize = size
         this.chunkHeight = height
 
-        return this.generateTerrain()
+        this.generateTerrain()
+        this.generateTrees()
+
+        return this.chunkData
     }
 
-    seedPRNG() {
-        let x = Math.sin(this.worldSeed) * 10000
+    seedPRNG(seed) {
+        let x = Math.sin(seed) * 10000
         return () => {
             x = Math.sin(x) * 10000
             return x - Math.floor(x)
@@ -57,15 +60,10 @@ class ChunkTerrain {
         }
     }
 
-    octaveNoise3D(
-        noiseFn,
-        x,
-        y,
-        z,
-        octaves = 4,
-        persistence = 0.5,
-        lacunarity = 2.0
-    ) {
+    octaveNoise3D(noiseFn, x, y, z) {
+        const octaves = 4
+        const persistence = 0.5
+        const lacunarity = 2.0
         let total = 0
         let frequency = 0.005
         let amplitude = 5
@@ -84,7 +82,7 @@ class ChunkTerrain {
     }
 
     generateTerrain() {
-        const noise3D = createNoise3D(this.seedPRNG())
+        const noise3D = createNoise3D(this.seedPRNG(this.worldSeed))
 
         const waterLevel = 64
 
@@ -144,7 +142,70 @@ class ChunkTerrain {
                 }
             }
         }
-        return this.chunkData
+    }
+
+    generateTrees() {
+        const treeSeed = this.worldSeed + 2390 // Dont follow terrain otherwise it looks odd
+        const noise2D = createNoise2D(this.seedPRNG(treeSeed))
+
+        for (let x = 0; x < this.chunkSize; x++) {
+            for (let z = 0; z < this.chunkSize; z++) {
+                const nx = x + this.chunkX * this.chunkSize
+                const nz = z + this.chunkY * this.chunkSize
+
+                const noise = noise2D(nx, nz)
+
+                if (noise > 0.9) {
+                    for (let y = this.chunkHeight - 1; y >= 0; y--) {
+                        const block = this.getBlock(x, y, z)
+                        if (block) {
+                            if (block.id == Blocks.grassBlock.id) {
+                                const trunkHeight =
+                                    3 + Math.floor((noise - 0.9) * 10) // 3-5 block tall trunk
+
+                                // Build trunk
+                                for (let t = 0; t < trunkHeight; t++) {
+                                    this.setBlock(
+                                        x,
+                                        1 + y + t,
+                                        z,
+                                        Blocks.logBlock.id
+                                    )
+                                }
+
+                                // Build leaves
+                                for (let lx = -2; lx <= 2; lx++) {
+                                    for (let lz = -2; lz <= 2; lz++) {
+                                        for (let ly = 0; ly <= 3; ly++) {
+                                            // a little taller
+                                            const horizontalDist =
+                                                Math.abs(lx) + Math.abs(lz)
+
+                                            // Simple rules:
+                                            if (horizontalDist <= 3 - ly) {
+                                                // narrower as ly goes up
+                                                const blockToSet =
+                                                    ly < 3 && lx == 0 && lz == 0
+                                                        ? Blocks.logBlock.id
+                                                        : Blocks.leaveBlock.id
+
+                                                this.setBlock(
+                                                    x + lx,
+                                                    1 + y + trunkHeight + ly,
+                                                    z + lz,
+                                                    blockToSet
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

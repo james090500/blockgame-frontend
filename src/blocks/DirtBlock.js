@@ -1,9 +1,9 @@
 import Block from './Block.js'
 
 class GrassBlock extends Block {
-    constructor() {
+    constructor(id) {
         super()
-        this.id = 2
+        this.id = id
         this.texture = 2
     }
 }

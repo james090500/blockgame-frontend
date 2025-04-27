@@ -220,7 +220,7 @@ class LocalPlayer {
         let lastBlock
         let currentBlock
         let previousBlock
-        this.traverseRay(camera.position, dir, 5, (x, y, z) => {
+        this.traverseRay(camera.position, dir, 4, (x, y, z) => {
             lastBlock = world.getBlock(x, y, z)
             currentBlock = [x, y, z]
             if (lastBlock && !(lastBlock instanceof WaterBlock)) {
@@ -318,10 +318,10 @@ class LocalPlayer {
             }
 
             const block = Blocks.ids[this.currentBlock]
-            const textureOffset = block.textureOffset()
+            const texture = block.getTexture()
             BlockGame.instance.gameManager.playerGui.playerHand.updateBlock(
-                textureOffset[0],
-                textureOffset[1]
+                texture[0],
+                texture[1]
             )
         }
     }

@@ -1,9 +1,9 @@
 import Block from './Block.js'
 
 class StoneBlock extends Block {
-    constructor() {
+    constructor(id) {
         super()
-        this.id = 3
+        this.id = id
         this.texture = 1
     }
 }
