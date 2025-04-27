@@ -33,23 +33,15 @@ class DebugGui {
         )
     }
     objectToText(object) {
-        const calculateTime = (time) => {
-            const totalSeconds = time / (24000 / 86400) // Convert game time to real-world seconds (24,000 ticks = 86,400s)
-            const hours = Math.floor(totalSeconds / 3600) % 24 // Ensure hours wrap around at 24
-            const minutes = Math.floor((totalSeconds % 3600) / 60)
-
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
-        }
-
         return `
             XYZ: ${Math.round(object.position.x)} ${Math.round(object.position.y)} ${Math.round(object.position.z)}
-            Time: 0
-            Ticks: 0
+            Seed: ${object.worldSeed}
         `
     }
     render() {
         const text = this.objectToText({
             position: BlockGame.instance.renderer.sceneManager.camera.position,
+            worldSeed: BlockGame.instance.gameManager.world.worldSeed,
         })
 
         this.mesh.geometry = new ShapeGeometry(

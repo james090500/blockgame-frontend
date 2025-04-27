@@ -17,7 +17,7 @@ class World {
         },
     })
     chunkMeshPool = workerpool.pool(ChunkMesh, {
-        maxWorkers: 1,
+        maxWorkers: 3,
         workerOpts: {
             type: import.meta.env.PROD ? undefined : 'module',
         },
@@ -33,13 +33,6 @@ class World {
         // Sky
         BlockGame.instance.renderer.sceneManager.scene.background = new Color(
             this.skyColor
-        )
-
-        // Fog
-        BlockGame.instance.renderer.sceneManager.scene.fog = new Fog(
-            this.skyColor,
-            90,
-            110
         )
     }
 
@@ -63,7 +56,7 @@ class World {
         this.lastPlayerX = playerPosX
         this.lastPlayerZ = playerPosZ
 
-        const worldSize = 8
+        const worldSize = 16
         const worldSizeSq = worldSize * worldSize
 
         // Loop through the render distance
