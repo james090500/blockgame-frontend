@@ -1,5 +1,5 @@
 import workerpool from 'workerpool'
-import { createNoise2D, createNoise3D } from 'simplex-noise'
+import { createNoise3D } from 'simplex-noise'
 import Blocks from '../blocks/Blocks.js'
 
 class ChunkTerrain {
@@ -57,68 +57,85 @@ class ChunkTerrain {
         }
     }
 
+    octaveNoise3D(
+        noiseFn,
+        x,
+        y,
+        z,
+        octaves = 4,
+        persistence = 0.5,
+        lacunarity = 2.0
+    ) {
+        let total = 0
+        let frequency = 0.005
+        let amplitude = 5
+        let maxValue = 0
+
+        for (let i = 0; i < octaves; i++) {
+            total +=
+                noiseFn(x * frequency, y * frequency, z * frequency) * amplitude
+            maxValue += amplitude
+
+            amplitude *= persistence
+            frequency *= lacunarity
+        }
+
+        return total / maxValue
+    }
+
     generateTerrain() {
-        const noise2D = createNoise2D(this.seedPRNG())
         const noise3D = createNoise3D(this.seedPRNG())
 
-        const smoothness = 45
         const waterLevel = 64
 
         for (let x = 0; x < this.chunkSize; x++) {
             for (let z = 0; z < this.chunkSize; z++) {
                 const nx = x + this.chunkX * this.chunkSize
                 const nz = z + this.chunkY * this.chunkSize
-                // Land vs Water generation
-                let biome = noise2D(nx * 0.0025, nz * 0.0025)
 
+                let beach = false
+                let topSoilDepth = -1
                 for (let y = this.chunkHeight - 1; y >= 0; y--) {
-                    const ny = y
+                    // terrain shaping
+                    let density = this.octaveNoise3D(noise3D, nx, y, nz)
 
-                    // Large-scale terrain shaping
-                    let density = noise3D(
-                        nx / smoothness,
-                        ny / smoothness,
-                        nz / smoothness
-                    )
-
-                    // Adjust density based on Y value to make it higher at lower Y values
                     const heightFactor = (waterLevel - y) / waterLevel
-
-                    // More land than water
-                    density += 0.3
-                    if (y < waterLevel || density < 0.5) {
-                        density += heightFactor * 10
+                    if (y > waterLevel) {
+                        if (density > 0.35) {
+                            density += heightFactor
+                        } else {
+                            density += heightFactor * 2
+                        }
                     } else {
-                        density += heightFactor * 5
+                        density += heightFactor * 2
                     }
 
-                    // Adjust density based on biome
-                    density += biome
-
                     let nextBlock
-                    const previousBlock = this.getBlock(x, y + 1, z)
                     if (density >= 0) {
-                        if (
-                            (y <= waterLevel + 2 && !previousBlock) ||
-                            (previousBlock &&
-                                previousBlock.id == Blocks.waterBlock.id)
-                        ) {
-                            nextBlock = Blocks.sandBlock.id
-                        } else if (
-                            y >= waterLevel &&
-                            previousBlock &&
-                            previousBlock.id == Blocks.sandBlock.id
-                        ) {
-                            nextBlock = Blocks.sandBlock.id
-                        } else if (!previousBlock) {
-                            nextBlock = Blocks.grassBlock.id
-                        } else if (!this.getBlock(x, y + 4, z)) {
-                            nextBlock = Blocks.dirtBlock.id
+                        if (topSoilDepth == -1) {
+                            if (y < waterLevel + 2) {
+                                nextBlock = Blocks.sandBlock.id
+                                beach = true
+                            } else {
+                                nextBlock = Blocks.grassBlock.id
+                                beach = false
+                            }
+                            topSoilDepth++
+                        } else if (topSoilDepth < 3) {
+                            if (beach) {
+                                nextBlock = Blocks.sandBlock.id
+                            } else {
+                                nextBlock = Blocks.dirtBlock.id
+                            }
+                            topSoilDepth++
                         } else {
                             nextBlock = Blocks.stoneBlock.id
                         }
-                    } else if (y <= waterLevel) {
-                        nextBlock = Blocks.waterBlock.id
+                    } else {
+                        if (y <= waterLevel) {
+                            nextBlock = Blocks.waterBlock.id
+                        }
+                        topSoilDepth = -1
                     }
 
                     if (nextBlock) {
