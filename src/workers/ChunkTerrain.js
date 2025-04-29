@@ -4,6 +4,7 @@ import Blocks from '../blocks/Blocks.js'
 
 class ChunkTerrain {
     constructor(seed, x, y, size, height) {
+        this.neighbors = new Map()
         this.chunkData = []
         this.worldSeed = seed
         this.chunkX = x
@@ -15,7 +16,10 @@ class ChunkTerrain {
         //this.generateCaves()
         this.generateTrees()
 
-        return this.chunkData
+        return {
+            data: this.chunkData,
+            neighbors: this.neighbors,
+        }
     }
 
     seedPRNG(seed) {
@@ -29,11 +33,11 @@ class ChunkTerrain {
     getIndex(x, y, z) {
         if (
             x < 0 ||
-            x > this.chunkSize ||
+            x >= this.chunkSize ||
             y < 0 ||
-            y > this.chunkHeight ||
+            y >= this.chunkHeight ||
             z < 0 ||
-            z > this.chunkSize
+            z >= this.chunkSize
         ) {
             return null
         }
@@ -43,20 +47,51 @@ class ChunkTerrain {
     }
 
     getBlock(x, y, z) {
-        const index = this.getIndex(x, y, z)
-        if (index == null) {
-            return null
-        } else {
-            const blockIndex = this.chunkData[index]
-            return Blocks.ids[blockIndex]
-        }
+        const chunkX = this.chunkX + Math.floor(x / 16)
+        const chunkY = this.chunkY + Math.floor(z / 16)
+
+        x = x & 15
+        z = z & 15
+
+        return this.getChunkBlock(chunkX, chunkY, x, y, z)
     }
 
     setBlock(x, y, z, value) {
-        if (y < this.chunkHeight) {
-            const index = this.getIndex(x, y, z)
-            if (index != null) {
-                this.chunkData[index] = value
+        const chunkX = this.chunkX + Math.floor(x / 16)
+        const chunkY = this.chunkY + Math.floor(z / 16)
+
+        x = x & 15
+        z = z & 15
+
+        return this.setChunkBlock(chunkX, chunkY, x, y, z, value)
+    }
+
+    getChunkBlock(chunkX, chunkY, x, y, z) {
+        const index = this.getIndex(x, y, z)
+        if (chunkX == this.chunkX && chunkY == this.chunkY) {
+            return this.chunkData[index]
+        } else {
+            const chunk = this.neighbors.get(`${chunkX},${chunkY}`)
+            if (chunk != null) {
+                return chunk[index]
+            } else {
+                return null
+            }
+        }
+    }
+
+    setChunkBlock(chunkX, chunkY, x, y, z, value) {
+        const index = this.getIndex(x, y, z)
+        if (chunkX == this.chunkX && chunkY == this.chunkY) {
+            this.chunkData[index] = value
+        } else {
+            const chunk = this.neighbors.get(`${chunkX},${chunkY}`)
+            if (chunk != null) {
+                chunk[index] = value
+            } else {
+                const chunk = []
+                chunk[index] = value
+                this.neighbors.set(`${chunkX},${chunkY}`, chunk)
             }
         }
     }
@@ -189,11 +224,8 @@ class ChunkTerrain {
                 if (noise > 0.9) {
                     for (let y = this.chunkHeight - 1; y >= 0; y--) {
                         const block = this.getBlock(x, y, z)
-                        if (block) {
-                            if (block.id == Blocks.grassBlock.id) {
-                                this.buildTree(noise, x, y, z)
-                            }
-                            break
+                        if (block == Blocks.grassBlock.id) {
+                            this.buildTree(noise, x, y, z)
                         }
                     }
                 }

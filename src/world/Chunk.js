@@ -28,8 +28,8 @@ class Chunk {
             getChunk(this.chunkX, this.chunkY - 1),
         ]
 
-        // Check if all neighbors are present and have data
-        const allReady = neighbors.every((c) => c && c.generated)
+        // Check ifall neighbors are generated, or if they dont exist
+        const allReady = neighbors.every((c) => !c || c.generated)
 
         if (allReady && !this.rendered) {
             this.render(world)
@@ -45,11 +45,11 @@ class Chunk {
     getIndex(x, y, z) {
         if (
             x < 0 ||
-            x > this.chunkSize ||
+            x >= this.chunkSize ||
             y < 0 ||
-            y > this.chunkHeight ||
+            y >= this.chunkHeight ||
             z < 0 ||
-            z > this.chunkSize
+            z >= this.chunkSize
         ) {
             return null
         }

@@ -101,8 +101,26 @@ class World {
                     },
                 ])
                 .then((chunkData) => {
-                    chunk.chunkData = chunkData
+                    chunk.chunkData = chunkData.data
                     chunk.generated = true
+
+                    // chunkData.neighbors.forEach((toAddArray, key) => {
+                    //     if (this.chunks.has(key)) {
+                    //         const otherChunk = this.chunks.get(key)
+                    //         const chunkArray = otherChunk.chunkData
+
+                    //         if (chunkArray) {
+                    //             for (let i = 0; i < chunkArray.length; i++) {
+                    //                 if (toAddArray[i] > 0) {
+                    //                     chunkArray[i] = toAddArray[i]
+                    //                 }
+                    //             }
+                    //         } else {
+                    //             otherChunk.chunkData = toAddArray
+                    //         }
+                    //         otherChunk.rendered = false
+                    //     }
+                    // })
 
                     chunk.maybeRenderChunk(this)
                 })
@@ -152,44 +170,38 @@ class World {
         const chunkX = Math.floor(x / 16)
         const chunkY = Math.floor(z / 16)
 
-        const localX = x & 15
-        const localZ = z & 15
+        x = x & 15
+        z = z & 15
 
-        const chunk = this.chunks.get(`${chunkX},${chunkY}`)
-        if (!chunk) return
-
-        chunk.setBlock(localX, y, localZ, value)
-        chunk.render(this)
-
-        // Helper function to render adjacent chunks if necessary
-        const renderAdjacentChunk = (adjX, adjY) => {
-            const adjacentChunk = this.chunks.get(`${adjX},${adjY}`)
-            if (adjacentChunk) adjacentChunk.render(this)
-        }
-
-        // Check and render adjacent chunks if necessary
-        if (localX === 0) renderAdjacentChunk(chunkX - 1, chunkY)
-        if (localX === 15) renderAdjacentChunk(chunkX + 1, chunkY)
-        if (localZ === 0) renderAdjacentChunk(chunkX, chunkY - 1)
-        if (localZ === 15) renderAdjacentChunk(chunkX, chunkY + 1)
+        return this.setChunkBlock(chunkX, chunkY, x, y, z, value)
     }
 
     getChunkBlock(chunkX, chunkY, x, y, z) {
-        // Adjust X coordinate and chunk
-        const offsetChunkX = Math.floor(x / 16)
-        chunkX += offsetChunkX
-        x = ((x % 16) + 16) % 16
-
-        // Adjust Z coordinate and chunk
-        const offsetChunkY = Math.floor(z / 16)
-        chunkY += offsetChunkY
-        z = ((z % 16) + 16) % 16
-
         const chunk = this.chunks.get(`${chunkX},${chunkY}`)
         if (chunk != null && chunk.generated) {
             return chunk.getBlock(x, y, z)
         } else {
             return null
+        }
+    }
+
+    setChunkBlock(chunkX, chunkY, x, y, z, value) {
+        const chunk = this.chunks.get(`${chunkX},${chunkY}`)
+        if (chunk != null) {
+            chunk.setBlock(x, y, z, value)
+            chunk.render(this)
+
+            // Helper function to render adjacent chunks if necessary
+            const renderAdjacentChunk = (adjX, adjY) => {
+                const adjacentChunk = this.chunks.get(`${adjX},${adjY}`)
+                if (adjacentChunk) adjacentChunk.render(this)
+            }
+
+            // Check and render adjacent chunks if necessary
+            if (x === 0) renderAdjacentChunk(chunkX - 1, chunkY)
+            if (x === 15) renderAdjacentChunk(chunkX + 1, chunkY)
+            if (z === 0) renderAdjacentChunk(chunkX, chunkY - 1)
+            if (z === 15) renderAdjacentChunk(chunkX, chunkY + 1)
         }
     }
 
