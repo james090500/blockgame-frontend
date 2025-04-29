@@ -12,7 +12,7 @@ class ChunkTerrain {
         this.chunkHeight = height
 
         this.generateTerrain()
-        this.generateCaves()
+        //this.generateCaves()
         this.generateTrees()
 
         return this.chunkData
