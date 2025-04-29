@@ -82,7 +82,6 @@ class ChunkRenderer {
                 varying vec3 vPosition;
                 varying vec2 vTexOffset;
                 varying float vAo;
-                varying float vFogDepth; // ADD THIS
 
                 void main() {
                     vNormal = normalize(normal);
@@ -90,10 +89,7 @@ class ChunkRenderer {
                     vTexOffset = textureOffset;
                     vAo = ao;
 
-
                     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    vFogDepth = -mvPosition.z; // ADD THIS (depth from camera)
-
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
@@ -106,18 +102,22 @@ class ChunkRenderer {
                 varying vec2 vTexOffset;
                 varying float vAo;
 
-                #include <fog_pars_fragment>
-
                 void main() {
                     vec2 tileSize = vec2(0.0625);
                     vec2 tileUV;
+                    float faceLight = 1.0;
 
                     // Determine correct UV projection based on face normal
                     if (abs(vNormal.x) > 0.5) {  // Left/Right faces
+                        faceLight = 0.8;
                         tileUV = vPosition.zy;
-                    } else if (vNormal.y > 0.5 || vNormal.y < -0.5) {  // Top and Bottom Face
+                    } else if (vNormal.y > 0.5) {  // Top Face
                         tileUV = vPosition.xz;
+                    } else if (vNormal.y < -0.5) {  // Bottom Face
+                        tileUV = vPosition.xz;
+                        faceLight = 0.5;
                     } else {  // Front/Back faces
+                        faceLight = 0.8;
                         tileUV = vPosition.xy;
                     }
 
@@ -125,21 +125,15 @@ class ChunkRenderer {
                     vec4 texel = texture2D(baseTexture, texCoord);
                     float finalAO = mix(0.15, 1.0, vAo / 3.0);
 
-                    gl_FragColor = vec4(texel.rgb * finalAO, texel.a);
+                    gl_FragColor = vec4(texel.rgb * finalAO * faceLight, texel.a);
                     //gl_FragColor = vec4(vec2(vAo / 3.0), 1.0, 1.0);
-
-                    #include <fog_fragment>
                 }
             `,
             uniforms: {
                 baseTexture: { type: 't', value: TextureManager.terrain },
-                fogColor: { value: new Color(0x000000) }, // will be overridden automatically
-                fogNear: { value: 0 },
-                fogFar: { value: 0 },
             },
             transparent,
             wireframe: world.wireframe,
-            fog: true,
         })
 
         const surfacemesh = new Mesh(geometry, material)

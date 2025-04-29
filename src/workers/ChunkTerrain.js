@@ -12,6 +12,7 @@ class ChunkTerrain {
         this.chunkHeight = height
 
         this.generateTerrain()
+        //this.generateCaves()
         this.generateTrees()
 
         return this.chunkData
@@ -144,6 +145,36 @@ class ChunkTerrain {
         }
     }
 
+    generateCaves() {
+        const caveSeed = this.worldSeed + 3456 // Dont follow terrain otherwise it looks odd
+        const frequency = 0.05
+        const noise3D = createNoise3D(this.seedPRNG(caveSeed))
+
+        for (let x = 0; x < this.chunkSize; x++) {
+            for (let z = 0; z < this.chunkSize; z++) {
+                const nx = x + this.chunkX * this.chunkSize
+                const nz = z + this.chunkY * this.chunkSize
+
+                for (let y = 74; y >= 0; y--) {
+                    let caveWorm = noise3D(
+                        nx * frequency,
+                        y * frequency,
+                        nz * frequency
+                    )
+
+                    if (caveWorm > 0.2) {
+                        const block = this.getBlock(x, y, z)
+                        if (block && block.id == Blocks.waterBlock.id) {
+                            return
+                        }
+
+                        this.setBlock(x, y, z, 0)
+                    }
+                }
+            }
+        }
+    }
+
     generateTrees() {
         const treeSeed = this.worldSeed + 2390 // Dont follow terrain otherwise it looks odd
         const noise2D = createNoise2D(this.seedPRNG(treeSeed))
@@ -160,48 +191,45 @@ class ChunkTerrain {
                         const block = this.getBlock(x, y, z)
                         if (block) {
                             if (block.id == Blocks.grassBlock.id) {
-                                const trunkHeight =
-                                    3 + Math.floor((noise - 0.9) * 10) // 3-5 block tall trunk
-
-                                // Build trunk
-                                for (let t = 0; t < trunkHeight; t++) {
-                                    this.setBlock(
-                                        x,
-                                        1 + y + t,
-                                        z,
-                                        Blocks.logBlock.id
-                                    )
-                                }
-
-                                // Build leaves
-                                for (let lx = -2; lx <= 2; lx++) {
-                                    for (let lz = -2; lz <= 2; lz++) {
-                                        for (let ly = 0; ly <= 3; ly++) {
-                                            // a little taller
-                                            const horizontalDist =
-                                                Math.abs(lx) + Math.abs(lz)
-
-                                            // Simple rules:
-                                            if (horizontalDist <= 3 - ly) {
-                                                // narrower as ly goes up
-                                                const blockToSet =
-                                                    ly < 3 && lx == 0 && lz == 0
-                                                        ? Blocks.logBlock.id
-                                                        : Blocks.leaveBlock.id
-
-                                                this.setBlock(
-                                                    x + lx,
-                                                    1 + y + trunkHeight + ly,
-                                                    z + lz,
-                                                    blockToSet
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                this.buildTree(noise, x, y, z)
                             }
                             break
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    buildTree(noise, x, y, z) {
+        const trunkHeight = 3 + Math.floor((noise - 0.9) * 10) // 3-5 block tall trunk
+
+        // Build trunk
+        for (let t = 0; t < trunkHeight; t++) {
+            this.setBlock(x, 1 + y + t, z, Blocks.logBlock.id)
+        }
+
+        // Build leaves
+        for (let lx = -2; lx <= 2; lx++) {
+            for (let lz = -2; lz <= 2; lz++) {
+                for (let ly = 0; ly <= 3; ly++) {
+                    // a little taller
+                    const horizontalDist = Math.abs(lx) + Math.abs(lz)
+
+                    // Simple rules:
+                    if (horizontalDist <= 3 - ly) {
+                        // narrower as ly goes up
+                        const blockToSet =
+                            ly < 3 && lx == 0 && lz == 0
+                                ? Blocks.logBlock.id
+                                : Blocks.leaveBlock.id
+
+                        this.setBlock(
+                            x + lx,
+                            1 + y + trunkHeight + ly,
+                            z + lz,
+                            blockToSet
+                        )
                     }
                 }
             }

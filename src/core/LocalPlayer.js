@@ -101,6 +101,11 @@ class LocalPlayer {
         dir.y = 0
         dir.normalize()
 
+        // Stop playing falling through the world
+        if (camera.position.y < -30) {
+            camera.position.y = 100
+        }
+
         // Handle noclip toggle
         if (keys.KeyV) {
             keys.KeyV = false
