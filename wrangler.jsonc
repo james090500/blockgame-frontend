@@ -8,6 +8,6 @@
         "not_found_handling": "single-page-application"
     },
     "vars": {
-        "NODE_VERSION": "24"
+        "NODE_VERSION": 24
     }
 }
