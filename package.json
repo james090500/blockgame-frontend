@@ -6,19 +6,20 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "preview": "vite preview",
-        "format": "npm run lint",
-        "lint": "eslint src --fix"
+        "format": "npm run lint && npm run prettier",
+        "lint": "eslint ./src --fix",
+        "prettier": "prettier ./src --write"
     },
     "dependencies": {
         "simplex-noise": "^4.0.3",
-        "three": "^0.176.0",
-        "workerpool": "^9.2.0"
+        "three": "^0.183.2",
+        "workerpool": "^10.0.1"
     },
     "devDependencies": {
-        "eslint-config-prettier": "^10.1.2",
-        "eslint-plugin-prettier": "^5.2.6",
-        "vite": "^6.3.3",
+        "@cloudflare/vite-plugin": "^1.30.2",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.5",
+        "vite": "^8.0.3",
         "vite-plugin-eslint": "^1.8.1"
     }
 }

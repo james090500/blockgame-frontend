@@ -31,9 +31,10 @@
         </div>
         <canvas id="blockgame"></canvas>
         <script type="module">
-            import BlockGame from './src/BlockGame.js'
+            import BlockGame from '/src/BlockGame.js'
 
             const pauseScreen = document.getElementById('pause')
+
             const blockGame = new BlockGame({
                 canvas: document.getElementById('blockgame'),
                 username: "james",
@@ -43,8 +44,7 @@
                 onUnlock: () => {
                     pauseScreen.style.display = 'block'
                 },
-                onUpdatePlayers: (players) => {
-                },
+                onUpdatePlayers: (players) => {},
             })
 
             pauseScreen.addEventListener('click', () => {

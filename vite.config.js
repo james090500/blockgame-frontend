@@ -1,19 +1,12 @@
 import { defineConfig } from 'vite'
-import { fileURLToPath, URL } from 'url'
+import { cloudflare } from '@cloudflare/vite-plugin'
 import eslint from 'vite-plugin-eslint'
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [eslint()],
-    resolve: {
-        alias: {
-            '@': fileURLToPath(new URL('./src', import.meta.url)),
-        },
-    },
+    plugins: [cloudflare(), eslint()],
     define: {
-        __BUILD_HASH__: JSON.stringify(
-            process.env.CF_PAGES_COMMIT_SHA ?? 'DEV'
-        ),
+        __BUILD_HASH__: JSON.stringify(process.env.WORKERS_CI_COMMIT_SHA || 'DEV'),
     },
     server: {
         allowedHosts: ['localhost.test'],
